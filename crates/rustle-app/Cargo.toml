@@ -1,0 +1,15 @@
+[package]
+name = "rustle-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "rustle"
+path = "src/main.rs"
+
+[dependencies]
+rustle-core.workspace = true
+rustle-fs.workspace = true
+anyhow.workspace = true
+iced = { version = "0.14", features = ["tokio", "image", "svg"] }

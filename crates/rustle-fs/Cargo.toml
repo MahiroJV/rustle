@@ -1,0 +1,12 @@
+[package]
+name = "rustle-fs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rustle-core.workspace = true
+thiserror.workspace = true
+trash = "5"   
+open  = "5"   
+dirs  = "6"   

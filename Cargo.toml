@@ -1,0 +1,22 @@
+[workspace]
+members = ["crates/rustle-core", "crates/rustle-fs", "crates/rustle-app"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+authors = ["MahiroJV"]
+repository = "https://github.com/MahiroJV/rustle"
+
+[workspace.dependencies]
+rustle-core = { path = "crates/rustle-core" }
+rustle-fs   = { path = "crates/rustle-fs" }
+anyhow    = "1"
+thiserror = "2"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
