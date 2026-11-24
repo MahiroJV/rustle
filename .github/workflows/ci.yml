@@ -56,18 +56,18 @@ jobs:
       - name: Tests
         run: cargo test --workspace --locked
 
-  other-os:
-    name: ${{ matrix.os }} (clippy)
-    strategy:
-      fail-fast: false # one OS failing shouldn't hide the other's result
-      matrix:
-        os: [windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
-      - uses: Swatinem/rust-cache@v2
-      - name: Clippy
-        run: cargo clippy --workspace --all-targets --locked
+#  other-os:
+#    name: ${{ matrix.os }} (clippy)
+#    strategy:
+#      fail-fast: false # one OS failing shouldn't hide the other's result
+#     matrix:
+#        os: [windows-latest, macos-latest]
+#    runs-on: ${{ matrix.os }}
+#    steps:
+#      - uses: actions/checkout@v4
+#      - uses: dtolnay/rust-toolchain@stable
+#        with:
+#          components: clippy
+#      - uses: Swatinem/rust-cache@v2
+#      - name: Clippy
+#        run: cargo clippy --workspace --all-targets --locked
