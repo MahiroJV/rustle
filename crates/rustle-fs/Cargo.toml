@@ -6,7 +6,5 @@ license.workspace = true
 
 [dependencies]
 rustle-core.workspace = true
-thiserror.workspace = true
-trash = "5"   
-open  = "5"   
-dirs  = "6"   
+open = "5"
+dirs = "6"

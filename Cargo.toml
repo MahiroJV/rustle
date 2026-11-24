@@ -12,7 +12,6 @@ repository = "https://github.com/MahiroJV/rustle"
 [workspace.dependencies]
 rustle-core = { path = "crates/rustle-core" }
 rustle-fs   = { path = "crates/rustle-fs" }
-anyhow    = "1"
 thiserror = "2"
 
 [profile.release]

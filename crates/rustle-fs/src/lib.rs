@@ -1,5 +1,6 @@
 //! rustle-fs — the local-disk backend for rustle-core's `FileSystem` trait.
 
+use std::fs::{DirEntry, Metadata};
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
@@ -18,9 +19,9 @@ impl FileSystem for LocalFs {
             // metadata() follows symlinks, so a link to a folder counts as a folder.
             let meta = std::fs::metadata(item.path()).ok();
             entries.push(Entry {
-                hidden: name.starts_with('.'),
-                is_dir: meta.as_ref().is_some_and(|m| m.is_dir()),
-                size: meta.as_ref().map_or(0, |m| m.len()),
+                hidden: is_hidden(&name, &item),
+                is_dir: meta.as_ref().is_some_and(Metadata::is_dir),
+                size: meta.as_ref().map_or(0, Metadata::len),
                 path: item.path(),
                 name,
             });
@@ -31,6 +32,29 @@ impl FileSystem for LocalFs {
     fn home(&self) -> PathBuf {
         dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"))
     }
+
+    fn open(&self, path: &Path) -> Result<(), FsError> {
+        // Detached so closing rustle doesn't take the opened app with it.
+        open::that_detached(path).map_err(|e| map_err(e, path))
+    }
+}
+
+/// Dot-files are hidden everywhere; on Windows the "hidden" attribute counts too.
+fn is_hidden(name: &str, item: &DirEntry) -> bool {
+    if name.starts_with('.') {
+        return true;
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        const FILE_ATTRIBUTE_HIDDEN: u32 = 0x2;
+        if let Ok(meta) = item.metadata() {
+            return meta.file_attributes() & FILE_ATTRIBUTE_HIDDEN != 0;
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = item;
+    false
 }
 
 fn map_err(e: std::io::Error, path: &Path) -> FsError {
