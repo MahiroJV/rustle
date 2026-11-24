@@ -228,7 +228,12 @@ crates/rustle-app/src/
   - `App { tabs: Vec<Tab>, active: usize, next_tab_id: u64, … }`
   - `App::load(&mut self, tab_id: u64, dir: PathBuf, push_history: bool) -> Task<Message>`. This replaces the current `load`. `Loaded` now carries `tab_id` and is dropped if the tab is gone or the request is stale.
   - Messages: `NewTab(Option<PathBuf>)` (`None` opens Home), `CloseTab(u64)`, `SelectTab(usize)`, `NextTab`, `PrevTab`, `Back`, `Forward`, `Up`, `Navigate(PathBuf)` (active tab), `LocationChanged(String)`, `LocationSubmit`.
-  - Keyboard: `iced::keyboard::listen()` mapped via `.filter_map` → Ctrl+T, Ctrl+W, Ctrl+Tab, Ctrl+Shift+Tab, Alt+Left, Alt+Right, Alt+Up.
+  - Shortcuts live in one place: `crates/rustle-app/src/keybinds.rs` with a pure `pub fn shortcut(key: &keyboard::Key, mods: keyboard::Modifiers) -> Option<Message>` (unit-tested) and `pub fn mouse_button(b: mouse::Button) -> Option<Message>`, fed by one `iced::event::listen_with` subscription. Fixed defaults (not user-editable this round):
+    - Ctrl+T new tab · Ctrl+W close tab · Ctrl+Tab / Ctrl+Shift+Tab next/prev tab
+    - Alt+Left / **mouse Back button** → Back · Alt+Right / **mouse Forward button** → Forward
+    - Alt+Up / Backspace → Up · Ctrl+L focus location bar · F5 refresh · Ctrl+H show/hide hidden · Ctrl+, settings
+    - Keys that need a selection (F2 rename, Delete → trash, Ctrl+C/X/V, Ctrl+Shift+N new folder, Enter open) are added to `shortcut` in Task 10.
+    - Shortcuts are ignored while a text field has focus, so typing a path with Backspace doesn't navigate up (`listen_with` passes `event::Status::Captured` for those → return `None`).
   - Closing the last tab does nothing. Middle-click on a tab closes it (`mouse_area::on_middle_press`).
   - A `LocationSubmit` to a path that fails to load keeps the old folder and shows the error in the status bar.
 

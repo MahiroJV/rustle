@@ -2,7 +2,7 @@
 
 mod entry;
 mod fs;
-mod settings;
+pub mod settings;
 
 pub use entry::{Entry, format_size, sort_entries};
 pub use fs::{FileSystem, FsError};
