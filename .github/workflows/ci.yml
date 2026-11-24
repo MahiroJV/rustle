@@ -55,6 +55,8 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked
       - name: Tests
         run: cargo test --workspace --locked
+      - name: Designite Incremental Code Quality Analysis
+        uses: DesigniteTools/designite-incremental-analysis@v2.1.0
 
 #  other-os:
 #    name: ${{ matrix.os }} (clippy)
