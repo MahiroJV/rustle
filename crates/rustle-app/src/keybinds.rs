@@ -3,6 +3,7 @@
 use iced::keyboard::key::Named;
 use iced::keyboard::{self, Key, Modifiers};
 use iced::{Event, event, mouse, window};
+use rustle_core::{IconSize, Layout};
 
 use crate::message::Message;
 
@@ -30,7 +31,17 @@ pub fn on_event(event: Event, status: event::Status, _window: window::Id) -> Opt
             // Ctrl+T works even with a Russian or Azerbaijani layout.
             shortcut(&key, key.to_latin(physical_key), modifiers)
         }
+        // The app remembers which modifier keys are held, for Ctrl + wheel.
+        Event::Keyboard(keyboard::Event::ModifiersChanged(mods)) => {
+            Some(Message::ModifiersChanged(mods))
+        }
         Event::Mouse(mouse::Event::ButtonPressed(button)) => mouse_button(button),
+        Event::Mouse(mouse::Event::WheelScrolled { delta }) => {
+            let y = match delta {
+                mouse::ScrollDelta::Lines { y, .. } | mouse::ScrollDelta::Pixels { y, .. } => y,
+            };
+            (y != 0.0).then_some(Message::Wheel(y))
+        }
         _ => None,
     }
 }
@@ -64,6 +75,13 @@ pub fn shortcut(key: &Key, latin: Option<char>, mods: Modifiers) -> Option<Messa
         'l' if !shift => Some(Message::StartEditLocation),
         'h' if !shift => Some(Message::ToggleHidden),
         ',' => Some(Message::OpenSettings),
+        '1' => Some(Message::SetLayout(Layout::Details)),
+        '2' => Some(Message::SetLayout(Layout::List)),
+        '3' => Some(Message::SetLayout(Layout::Icons)),
+        // "=" is the key that has "+" on it, so Ctrl+= and Ctrl++ both work.
+        '=' | '+' => Some(Message::ZoomIn),
+        '-' => Some(Message::ZoomOut),
+        '0' => Some(Message::SetIconSize(IconSize::Medium)),
         _ => None,
     }
 }
@@ -91,6 +109,15 @@ mod tests {
         assert_eq!(shortcut(&ch("w"), Some('w'), Modifiers::CTRL), Some(Message::CloseActiveTab));
         assert_eq!(shortcut(&ch("h"), Some('h'), Modifiers::CTRL), Some(Message::ToggleHidden));
         assert_eq!(shortcut(&ch(","), Some(','), Modifiers::CTRL), Some(Message::OpenSettings));
+    }
+
+    #[test]
+    fn view_shortcuts() {
+        assert_eq!(shortcut(&ch("3"), Some('3'), Modifiers::CTRL), Some(Message::SetLayout(Layout::Icons)));
+        assert_eq!(shortcut(&ch("="), Some('='), Modifiers::CTRL), Some(Message::ZoomIn));
+        // Ctrl+Shift+= types "+" on most keyboards: still zoom in.
+        assert_eq!(shortcut(&ch("+"), Some('='), Modifiers::CTRL | Modifiers::SHIFT), Some(Message::ZoomIn));
+        assert_eq!(shortcut(&ch("-"), Some('-'), Modifiers::CTRL), Some(Message::ZoomOut));
     }
 
     #[test]

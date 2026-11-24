@@ -38,7 +38,7 @@ pub fn save_settings(path: &Path, settings: &Settings) -> Result<(), FsError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rustle_core::ThemeChoice;
+    use rustle_core::{IconSize, Layout, SortKey, ThemeChoice, ViewSettings};
 
     #[test]
     fn round_trip() {
@@ -50,6 +50,12 @@ mod tests {
             blur: true,
             show_hidden: true,
             favorites: vec!["/tmp".into()],
+            view: ViewSettings {
+                layout: Layout::Icons,
+                icon_size: IconSize::Large,
+                sort: SortKey::Modified,
+                descending: true,
+            },
         };
         save_settings(&p, &s).unwrap();
         assert_eq!(load_settings(&p), s);

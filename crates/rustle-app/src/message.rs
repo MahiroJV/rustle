@@ -2,7 +2,8 @@
 
 use std::path::PathBuf;
 
-use rustle_core::{Entry, ThemeChoice};
+use iced::keyboard::Modifiers;
+use rustle_core::{Entry, IconSize, Layout, SortKey, ThemeChoice};
 
 /// Why a folder is being loaded. It decides what happens to the history
 /// once the load succeeds (a failed load never touches the history).
@@ -38,8 +39,33 @@ pub enum Message {
     StartEditLocation,
     LocationChanged(String),
     LocationSubmit,
-    /// Escape: leave typing mode (later also closes menus).
+    /// Escape: leave typing mode, close the View menu.
     Escape,
+
+    // View menu & file list look
+    ToggleViewMenu,
+    CloseViewMenu,
+    SetLayout(Layout),
+    SetIconSize(IconSize),
+    ZoomIn,
+    ZoomOut,
+    /// Chosen in the View menu.
+    SetSort(SortKey),
+    SetDescending(bool),
+    /// A column header was clicked (same column again flips the direction).
+    SortByColumn(SortKey),
+    /// Item counts for the folders in a tab's listing, from the background.
+    ItemCounts {
+        tab_id: u64,
+        request: u64,
+        counts: Vec<(PathBuf, Option<u64>)>,
+    },
+
+    // Raw input the app needs to remember
+    /// Ctrl/Shift/Alt pressed or released (for Ctrl + mouse wheel).
+    ModifiersChanged(Modifiers),
+    /// Mouse wheel moved; positive = up/away from you.
+    Wheel(f32),
 
     // Tabs
     /// `None` opens the new tab in the home folder.

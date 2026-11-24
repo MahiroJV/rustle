@@ -5,6 +5,8 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use crate::view::ViewSettings;
+
 pub const MIN_OPACITY: f32 = 0.60;
 pub const MAX_OPACITY: f32 = 1.00;
 
@@ -30,6 +32,8 @@ pub struct Settings {
     pub blur: bool,
     pub show_hidden: bool,
     pub favorites: Vec<PathBuf>,
+    /// Layout, icon size and sort order of the file list.
+    pub view: ViewSettings,
 }
 
 impl Default for Settings {
@@ -40,6 +44,7 @@ impl Default for Settings {
             blur: false,
             show_hidden: false,
             favorites: Vec::new(),
+            view: ViewSettings::default(),
         }
     }
 }

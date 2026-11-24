@@ -1,6 +1,7 @@
 //! rustle — a lightweight file manager built with iced.
 
 mod app;
+mod dates;
 mod file_list;
 mod icons;
 mod keybinds;
@@ -9,6 +10,7 @@ mod pathbar;
 mod settings_page;
 mod tab;
 mod theme;
+mod view_menu;
 
 use app::App;
 use iced::window;

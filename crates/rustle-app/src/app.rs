@@ -3,9 +3,10 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use iced::widget::{button, column, container, mouse_area, row, text};
+use iced::keyboard::Modifiers;
+use iced::widget::{button, column, container, mouse_area, opaque, row, space, stack, text};
 use iced::{Element, Fill, Subscription, Task, Theme};
-use rustle_core::{FileSystem, Settings, sort_entries};
+use rustle_core::{FileSystem, Settings, sort_entries_by};
 use rustle_fs::LocalFs;
 
 use crate::icons::{self, Ui};
@@ -14,10 +15,12 @@ use crate::message::{Message, Nav};
 use crate::pathbar::{self, LOCATION_ID};
 use crate::tab::{Tab, shorten};
 use crate::theme::{self, Colors, SIDEBAR_WIDTH, panel, row_button, tab_button};
-use crate::{file_list, settings_page};
+use crate::{file_list, settings_page, view_menu};
 
 const TAB_TITLE_MAX: usize = 24;
 const TAB_MAX_WIDTH: f32 = 220.0;
+/// Counting items in thousands of folders isn't worth it; stop here.
+const MAX_FOLDERS_TO_COUNT: usize = 5000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Page {
@@ -40,6 +43,9 @@ pub struct App {
     home: PathBuf,
     /// The path bar shows a text field (true) instead of buttons (false).
     editing_location: bool,
+    view_menu_open: bool,
+    /// Which of Ctrl/Shift/Alt are held right now (for Ctrl + mouse wheel).
+    modifiers: Modifiers,
     error: Option<String>,
 }
 
@@ -57,6 +63,8 @@ impl App {
             next_tab_id: 1,
             home: home.clone(),
             editing_location: false,
+            view_menu_open: false,
+            modifiers: Modifiers::empty(),
             error: None,
         };
         let task = app.load(0, home, Nav::Reload);
@@ -101,6 +109,8 @@ impl App {
     /// Read `dir` for one tab on a blocking thread, so a big or slow folder
     /// doesn't freeze the window.
     fn load(&mut self, tab_id: u64, dir: PathBuf, nav: Nav) -> Task<Message> {
+        // Copied out first: `tab_by_id` below borrows `self` mutably.
+        let (key, descending) = (self.settings.view.sort, self.settings.view.descending);
         let Some(tab) = self.tab_by_id(tab_id) else {
             return Task::none();
         };
@@ -114,7 +124,7 @@ impl App {
                 let read_dir = dir.clone();
                 let result = tokio::task::spawn_blocking(move || {
                     let mut entries = fs.list(&read_dir).map_err(|e| e.to_string())?;
-                    sort_entries(&mut entries);
+                    sort_entries_by(&mut entries, key, descending);
                     Ok(entries)
                 })
                 .await
@@ -135,6 +145,43 @@ impl App {
     fn go(&mut self, dir: PathBuf, nav: Nav) -> Task<Message> {
         let id = self.tab().id;
         self.load(id, dir, nav)
+    }
+
+    /// Count the items inside every sub-folder of a tab's listing, in the
+    /// background. `request` ties the result to this listing, so counts for
+    /// a folder the user already left are thrown away.
+    fn count_items(&self, tab_id: u64, request: u64, folders: Vec<PathBuf>) -> Task<Message> {
+        if folders.is_empty() {
+            return Task::none();
+        }
+        Task::perform(
+            async move {
+                tokio::task::spawn_blocking(move || {
+                    folders
+                        .into_iter()
+                        .map(|dir| {
+                            let n = rustle_fs::count_items(&dir).ok();
+                            (dir, n)
+                        })
+                        .collect()
+                })
+                .await
+                .unwrap_or_default()
+            },
+            move |counts| Message::ItemCounts {
+                tab_id,
+                request,
+                counts,
+            },
+        )
+    }
+
+    /// Re-sort every tab after the sort order changed (no disk access needed).
+    fn resort(&mut self) {
+        let v = self.settings.view;
+        for tab in &mut self.tabs {
+            sort_entries_by(&mut tab.entries, v.sort, v.descending);
+        }
     }
 
     /// Write the settings file on a blocking thread.
@@ -224,11 +271,77 @@ impl App {
                             }
                             Nav::Fresh | Nav::Reload => {}
                         }
+                        let folders: Vec<PathBuf> = entries
+                            .iter()
+                            .filter(|e| e.is_dir)
+                            .take(MAX_FOLDERS_TO_COUNT)
+                            .map(|e| e.path.clone())
+                            .collect();
                         tab.entries = entries;
+                        tab.item_counts.clear();
                         tab.location_input = tab.cwd.display().to_string();
                         self.error = None;
+                        return self.count_items(tab_id, request, folders);
                     }
                     Err(e) => self.error = Some(e),
+                }
+            }
+            Message::ItemCounts {
+                tab_id,
+                request,
+                counts,
+            } => {
+                if let Some(tab) = self.tab_by_id(tab_id)
+                    && tab.request == request
+                {
+                    tab.item_counts.extend(counts);
+                }
+            }
+
+            // ---- view ----
+            Message::ToggleViewMenu => self.view_menu_open = !self.view_menu_open,
+            Message::CloseViewMenu => self.view_menu_open = false,
+            Message::SetLayout(layout) => {
+                self.settings.view.layout = layout;
+                self.page = Page::Files;
+                return self.save_settings();
+            }
+            Message::SetIconSize(size) => {
+                self.settings.view.icon_size = size;
+                return self.save_settings();
+            }
+            Message::ZoomIn => {
+                self.settings.view.icon_size = self.settings.view.icon_size.bigger();
+                return self.save_settings();
+            }
+            Message::ZoomOut => {
+                self.settings.view.icon_size = self.settings.view.icon_size.smaller();
+                return self.save_settings();
+            }
+            Message::SetSort(key) => {
+                self.settings.view.sort = key;
+                self.resort();
+                return self.save_settings();
+            }
+            Message::SetDescending(descending) => {
+                self.settings.view.descending = descending;
+                self.resort();
+                return self.save_settings();
+            }
+            Message::SortByColumn(key) => {
+                self.settings.view.click_column(key);
+                self.resort();
+                return self.save_settings();
+            }
+            Message::ModifiersChanged(mods) => self.modifiers = mods,
+            Message::Wheel(y) => {
+                // Only Ctrl + wheel zooms; a plain wheel just scrolls the list.
+                if self.modifiers.command() {
+                    let size = self.settings.view.icon_size;
+                    self.settings.view.icon_size = if y > 0.0 { size.bigger() } else { size.smaller() };
+                    if self.settings.view.icon_size != size {
+                        return self.save_settings();
+                    }
                 }
             }
 
@@ -252,7 +365,10 @@ impl App {
                 let path = expand_home(self.tab().location_input.trim(), &self.home);
                 return self.go(path, Nav::Fresh);
             }
-            Message::Escape => self.editing_location = false,
+            Message::Escape => {
+                self.editing_location = false;
+                self.view_menu_open = false;
+            }
 
             // ---- tabs ----
             Message::NewTab(path) => {
@@ -317,7 +433,13 @@ impl App {
         let tab = self.tab();
 
         let main: Element<'_, Message> = match self.page {
-            Page::Files => file_list::view(&tab.entries, self.settings.show_hidden, c),
+            Page::Files => file_list::view(
+                &tab.entries,
+                self.settings.show_hidden,
+                self.settings.view,
+                &tab.item_counts,
+                c,
+            ),
             Page::Settings => settings_page::view(&self.settings, self.started_transparent, c),
         };
 
@@ -332,7 +454,7 @@ impl App {
         ]
         .spacing(8);
 
-        row![
+        let base = row![
             container(self.sidebar(c))
                 .width(SIDEBAR_WIDTH)
                 .height(Fill)
@@ -341,8 +463,22 @@ impl App {
             right.width(Fill).height(Fill),
         ]
         .spacing(8)
-        .padding(8)
-        .into()
+        .padding(8);
+
+        if !self.view_menu_open {
+            return base.into();
+        }
+
+        // The View menu floats on top (a `stack` draws layers over each other):
+        // 1. the normal window,
+        // 2. an invisible full-window area: clicking anywhere outside the menu closes it,
+        // 3. the menu itself, near the View button (top right).
+        let backdrop = mouse_area(space().width(Fill).height(Fill)).on_press(Message::CloseViewMenu);
+        let menu = container(opaque(view_menu::view(self.settings.view, c)))
+            .width(Fill)
+            .align_right(Fill)
+            .padding(iced::Padding { top: 96.0, right: 56.0, bottom: 0.0, left: 0.0 });
+        stack![base, backdrop, menu].into()
     }
 
     /// Browser-style tabs: each up to `TAB_MAX_WIDTH` wide (narrower when
@@ -399,6 +535,7 @@ impl App {
             icon_button(Ui::Back, tab.history.can_back().then_some(Message::Back)),
             icon_button(Ui::Forward, tab.history.can_forward().then_some(Message::Forward)),
             container(pathbar::view(tab, &self.home, self.editing_location, c)).width(Fill),
+            icon_button(Ui::View, Some(Message::ToggleViewMenu)),
             icon_button(Ui::Settings, Some(Message::OpenSettings)),
         ]
         .spacing(4)

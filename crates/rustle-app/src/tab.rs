@@ -1,5 +1,6 @@
 //! One tab: its own folder, file list and back/forward history.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use rustle_core::{Entry, History};
@@ -17,6 +18,9 @@ pub struct Tab {
     pub history: History,
     /// What's typed in the location bar (may differ from `cwd` while editing).
     pub location_input: String,
+    /// How many items each sub-folder holds (the "Items" column).
+    /// Missing = still counting; `None` = couldn't be read.
+    pub item_counts: HashMap<PathBuf, Option<u64>>,
 }
 
 impl Tab {
@@ -29,6 +33,7 @@ impl Tab {
             loading: false,
             request: 0,
             history: History::default(),
+            item_counts: HashMap::new(),
         }
     }
 
