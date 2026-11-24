@@ -13,6 +13,8 @@ repository = "https://github.com/MahiroJV/rustle"
 rustle-core = { path = "crates/rustle-core" }
 rustle-fs   = { path = "crates/rustle-fs" }
 thiserror = "2"
+serde     = { version = "1", features = ["derive"] }
+toml      = "0.9"
 
 [profile.release]
 opt-level = 3

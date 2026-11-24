@@ -6,6 +6,9 @@ use std::path::{Path, PathBuf};
 
 use rustle_core::{Entry, FileSystem, FsError};
 
+mod settings_store;
+pub use settings_store::{load_settings, save_settings, settings_path};
+
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LocalFs;
 
