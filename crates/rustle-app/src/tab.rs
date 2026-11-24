@@ -23,6 +23,9 @@ pub struct Tab {
     pub item_counts: HashMap<PathBuf, Option<u64>>,
     /// Showing the Home page instead of `cwd`'s files.
     pub home_page: bool,
+    /// How far the file list is scrolled, in pixels. The list only builds
+    /// the rows around this position, so it must match the real scroll.
+    pub scroll_y: f32,
 }
 
 /// How the Home page is written in a tab's history: an empty path, which is
@@ -43,6 +46,7 @@ impl Tab {
             history: History::default(),
             item_counts: HashMap::new(),
             home_page: false,
+            scroll_y: 0.0,
         }
     }
 

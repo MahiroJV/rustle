@@ -87,6 +87,9 @@ pub enum Message {
         handle: Option<iced::widget::image::Handle>,
     },
 
+    /// The file list was scrolled; how far down it is now, in pixels.
+    ListScrolled(f32),
+
     // Raw input the app needs to remember
     /// Ctrl/Shift/Alt pressed or released (for Ctrl + mouse wheel).
     ModifiersChanged(Modifiers),

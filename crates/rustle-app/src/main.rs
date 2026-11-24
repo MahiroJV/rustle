@@ -11,6 +11,7 @@ mod pathbar;
 mod settings_page;
 mod sidebar;
 mod tab;
+mod textfit;
 mod theme;
 mod thumbs;
 mod view_menu;

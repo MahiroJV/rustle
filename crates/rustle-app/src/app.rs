@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use iced::keyboard::Modifiers;
 use iced::widget::{button, column, container, image, mouse_area, opaque, row, space, stack, text};
+use iced::widget::scrollable::{AbsoluteOffset, RelativeOffset};
 use iced::{Element, Fill, Subscription, Task, Theme};
 use rustle_core::{Entry, FileSystem, Layout, Settings, sort_entries, sort_entries_by};
 use rustle_fs::LocalFs;
@@ -18,6 +19,7 @@ use crate::sidebar::{self, Node, NodeIcon, Section, Sidebar};
 use crate::tab::{Tab, home_page_marker, shorten};
 use crate::theme::{self, Colors, SIDEBAR_WIDTH, panel, row_button, tab_button};
 use crate::thumbs::Thumbs;
+use crate::file_list::LIST_ID;
 use crate::{file_list, home_page, settings_page, view_menu};
 
 const TAB_TITLE_MAX: usize = 24;
@@ -299,6 +301,15 @@ impl App {
         self.sidebar.set_roots(Section::Drives, drives);
     }
 
+    /// Make the file list's real scroll position match the active tab's
+    /// `scroll_y` (after switching tabs, or when the list widget is recreated).
+    fn restore_scroll(&self) -> Task<Message> {
+        iced::widget::operation::scroll_to(
+            LIST_ID,
+            AbsoluteOffset { x: 0.0, y: self.tab().scroll_y },
+        )
+    }
+
     /// Re-sort every tab after the sort order changed (no disk access needed).
     fn resort(&mut self) {
         let v = self.settings.view;
@@ -361,6 +372,7 @@ impl App {
                         let here = tab.location();
                         tab.history.back(here);
                         tab.home_page = true;
+                        tab.scroll_y = 0.0;
                         return Task::none();
                     }
                     return self.go(target, Nav::Back);
@@ -373,6 +385,7 @@ impl App {
                         let here = tab.location();
                         tab.history.forward(here);
                         tab.home_page = true;
+                        tab.scroll_y = 0.0;
                         return Task::none();
                     }
                     return self.go(target, Nav::Forward);
@@ -394,6 +407,7 @@ impl App {
                     let here = tab.location();
                     tab.history.visit(here);
                     tab.home_page = true;
+                    tab.scroll_y = 0.0;
                 }
                 // Free space may have changed since last time.
                 return load_places();
@@ -439,6 +453,8 @@ impl App {
                 nav,
                 result,
             } => {
+                // Read this before `tab` borrows `self` mutably below.
+                let is_active_tab = self.tab().id == tab_id;
                 let Some(tab) = self.tab_by_id(tab_id) else {
                     return Task::none(); // the tab was closed meanwhile
                 };
@@ -466,7 +482,13 @@ impl App {
                         // (startup, F5) keeps it.
                         if nav != Nav::Reload {
                             tab.home_page = false;
+                            tab.scroll_y = 0.0;
                         }
+                        let to_top = if nav == Nav::Reload || !is_active_tab {
+                            Task::none()
+                        } else {
+                            iced::widget::operation::snap_to(LIST_ID, RelativeOffset::START)
+                        };
                         let folders: Vec<PathBuf> = entries
                             .iter()
                             .filter(|e| e.is_dir)
@@ -482,6 +504,7 @@ impl App {
                             counting,
                             self.request_thumbs(),
                             self.reveal_current(),
+                            to_top,
                         ]);
                     }
                     Err(e) => self.error = Some(e),
@@ -505,6 +528,8 @@ impl App {
             Message::SetLayout(layout) => {
                 self.settings.view.layout = layout;
                 self.page = Page::Files;
+                // A different layout is a new scroll area, starting at the top.
+                self.tabs[self.active].scroll_y = 0.0;
                 return Task::batch([self.save_settings(), self.request_thumbs()]);
             }
             Message::SetPreviews(on) => {
@@ -543,6 +568,7 @@ impl App {
                 self.resort();
                 return self.save_settings();
             }
+            Message::ListScrolled(y) => self.tabs[self.active].scroll_y = y,
             Message::ModifiersChanged(mods) => self.modifiers = mods,
             Message::Wheel(y) => {
                 // Only Ctrl + wheel zooms; a plain wheel just scrolls the list.
@@ -603,21 +629,28 @@ impl App {
                     self.active = index;
                     self.error = None;
                     self.editing_location = false;
-                    return Task::batch([self.request_thumbs(), self.reveal_current()]);
+                    return Task::batch([
+                        self.request_thumbs(),
+                        self.reveal_current(),
+                        self.restore_scroll(),
+                    ]);
                 }
             }
             Message::NextTab => {
                 self.active = (self.active + 1) % self.tabs.len();
-                return self.reveal_current();
+                return Task::batch([self.reveal_current(), self.restore_scroll()]);
             }
             Message::PrevTab => {
                 self.active = (self.active + self.tabs.len() - 1) % self.tabs.len();
-                return self.reveal_current();
+                return Task::batch([self.reveal_current(), self.restore_scroll()]);
             }
 
             // ---- settings ----
             Message::OpenSettings => self.page = Page::Settings,
-            Message::CloseSettings => self.page = Page::Files,
+            Message::CloseSettings => {
+                self.page = Page::Files;
+                return self.restore_scroll();
+            }
             Message::SetTheme(choice) => {
                 self.settings.theme = choice;
                 return self.save_settings();
@@ -660,6 +693,7 @@ impl App {
                 self.settings.view,
                 &tab.item_counts,
                 &self.thumbs,
+                tab.scroll_y,
                 c,
             ),
             Page::Settings => settings_page::view(&self.settings, self.started_transparent, c),
