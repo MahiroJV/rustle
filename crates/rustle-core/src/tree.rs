@@ -54,11 +54,17 @@ mod tests {
 
     #[test]
     fn component_not_string_prefix() {
-        assert_eq!(expand_chain(&[PathBuf::from("/home/me")], Path::new("/home/meow")), None);
+        assert_eq!(
+            expand_chain(&[PathBuf::from("/home/me")], Path::new("/home/meow")),
+            None
+        );
     }
 
     #[test]
     fn outside_every_root() {
-        assert_eq!(expand_chain(&[PathBuf::from("/home/me")], Path::new("/etc")), None);
+        assert_eq!(
+            expand_chain(&[PathBuf::from("/home/me")], Path::new("/etc")),
+            None
+        );
     }
 }

@@ -60,10 +60,11 @@ pub fn file_kind(name: &str, is_dir: bool) -> FileKind {
         "mp4" | "mkv" | "webm" | "avi" | "mov" | "wmv" | "flv" | "m4v" => FileKind::Video,
         "zip" | "tar" | "gz" | "tgz" | "bz2" | "xz" | "7z" | "rar" | "zst" | "deb" | "rpm"
         | "iso" => FileKind::Archive,
-        "rs" | "py" | "js" | "ts" | "jsx" | "tsx" | "html" | "css" | "scss" | "c" | "h"
-        | "cpp" | "hpp" | "cc" | "go" | "java" | "kt" | "swift" | "cs" | "rb" | "php" | "lua"
-        | "sh" | "bash" | "zsh" | "fish" | "nix" | "toml" | "yaml" | "yml" | "json" | "xml"
-        | "sql" => FileKind::Code,
+        "rs" | "py" | "js" | "ts" | "jsx" | "tsx" | "html" | "css" | "scss" | "c" | "h" | "cpp"
+        | "hpp" | "cc" | "go" | "java" | "kt" | "swift" | "cs" | "rb" | "php" | "lua" | "sh"
+        | "bash" | "zsh" | "fish" | "nix" | "toml" | "yaml" | "yml" | "json" | "xml" | "sql" => {
+            FileKind::Code
+        }
         "pdf" | "doc" | "docx" | "odt" | "rtf" | "xls" | "xlsx" | "ods" | "csv" | "ppt"
         | "pptx" | "odp" | "epub" => FileKind::Document,
         "txt" | "md" | "log" | "ini" | "conf" | "cfg" => FileKind::Text,

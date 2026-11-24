@@ -56,7 +56,9 @@ impl Thumbs {
     pub fn next_jobs(&mut self) -> Vec<PathBuf> {
         let mut jobs = Vec::new();
         while self.running < MAX_JOBS {
-            let Some(path) = self.queue.pop_front() else { break };
+            let Some(path) = self.queue.pop_front() else {
+                break;
+            };
             self.states.insert(path.clone(), State::Loading);
             self.running += 1;
             jobs.push(path);
@@ -90,7 +92,9 @@ mod tests {
     }
 
     fn paths(n: usize) -> Vec<PathBuf> {
-        (0..n).map(|i| PathBuf::from(format!("/p/{i}.png"))).collect()
+        (0..n)
+            .map(|i| PathBuf::from(format!("/p/{i}.png")))
+            .collect()
     }
 
     #[test]

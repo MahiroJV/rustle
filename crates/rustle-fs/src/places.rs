@@ -39,7 +39,10 @@ pub fn user_folders() -> Vec<Place> {
         // Some systems set e.g. Desktop = Home when it isn't configured.
         .filter(|(label, path)| *label == "Home" || Some(path) != home.as_ref())
         .filter(|(_, path)| path.is_dir())
-        .map(|(label, path)| Place { label: label.into(), path })
+        .map(|(label, path)| Place {
+            label: label.into(),
+            path,
+        })
         .collect()
 }
 
@@ -117,8 +120,8 @@ pub fn pick_drives(raw: Vec<RawMount>, skip_under: &Path) -> Vec<Drive> {
 /// Is this a real, user-facing filesystem (not a virtual/system one)?
 pub fn is_real_fs(fs_type: &str, mount: &Path) -> bool {
     const VIRTUAL: [&str; 11] = [
-        "tmpfs", "devtmpfs", "proc", "sysfs", "overlay", "squashfs", "efivarfs", "autofs",
-        "ramfs", "cgroup2", "devpts",
+        "tmpfs", "devtmpfs", "proc", "sysfs", "overlay", "squashfs", "efivarfs", "autofs", "ramfs",
+        "cgroup2", "devpts",
     ];
     if VIRTUAL.contains(&fs_type) {
         return false;
@@ -170,7 +173,10 @@ mod tests {
         assert!(!is_real_fs("tmpfs", Path::new("/tmp")));
         assert!(!is_real_fs("vfat", Path::new("/boot/efi")));
         assert!(!is_real_fs("squashfs", Path::new("/snap/x")));
-        assert!(!is_real_fs("fuse.SomeApp.AppImage", Path::new("/tmp/.mount_x")));
+        assert!(!is_real_fs(
+            "fuse.SomeApp.AppImage",
+            Path::new("/tmp/.mount_x")
+        ));
         assert!(!is_real_fs("ext4", Path::new("/run/credentials/x")));
     }
 
@@ -221,7 +227,13 @@ mod tests {
             println!("folder {:10} {}", p.label, p.path.display());
         }
         for d in drives() {
-            println!("drive  {:10} {} free {} of {}", d.label, d.mount.display(), d.free, d.total);
+            println!(
+                "drive  {:10} {} free {} of {}",
+                d.label,
+                d.mount.display(),
+                d.free,
+                d.total
+            );
         }
     }
 

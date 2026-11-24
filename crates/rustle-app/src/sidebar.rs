@@ -66,7 +66,10 @@ impl Node {
         if !path.starts_with(&self.path) {
             return None;
         }
-        self.children.as_mut()?.iter_mut().find_map(|c| c.find_mut(path))
+        self.children
+            .as_mut()?
+            .iter_mut()
+            .find_map(|c| c.find_mut(path))
     }
 }
 
@@ -87,7 +90,9 @@ impl Sidebar {
     }
 
     pub fn find_mut(&mut self, section: Section, path: &Path) -> Option<&mut Node> {
-        self.roots_mut(section).iter_mut().find_map(|n| n.find_mut(path))
+        self.roots_mut(section)
+            .iter_mut()
+            .find_map(|n| n.find_mut(path))
     }
 
     /// Replace a section's top-level nodes. Nodes whose path is still there
@@ -98,7 +103,10 @@ impl Sidebar {
         let merged = roots
             .into_iter()
             .map(|new| match old.iter().find(|o| o.path == new.path) {
-                Some(o) => Node { label: new.label, ..o.clone() },
+                Some(o) => Node {
+                    label: new.label,
+                    ..o.clone()
+                },
                 None => new,
             })
             .collect();
@@ -189,11 +197,17 @@ pub fn view<'a>(sidebar: &'a Sidebar, s: ViewState<'a>) -> Element<'a, Message> 
     let c = s.c;
     let home_icon = if s.on_home_page { c.text } else { c.muted };
     let mut col = column![
-        button(row![icons::ui(Ui::Home, home_icon, 16.0), text("Home page").size(14)].spacing(10))
-            .width(Fill)
-            .padding([5, 8])
-            .style(nav_row(c, s.on_home_page))
-            .on_press(Message::ShowHomePage),
+        button(
+            row![
+                icons::ui(Ui::Home, home_icon, 16.0),
+                text("Home page").size(14)
+            ]
+            .spacing(10)
+        )
+        .width(Fill)
+        .padding([5, 8])
+        .style(nav_row(c, s.on_home_page))
+        .on_press(Message::ShowHomePage),
     ]
     .spacing(2);
 
@@ -229,11 +243,16 @@ fn node_view<'a>(
     let c = s.c;
     let is_current = !s.on_home_page && s.cwd == Some(node.path.as_path());
 
-    let chevron_icon = if node.expanded { Ui::ChevronDown } else { Ui::ChevronRight };
+    let chevron_icon = if node.expanded {
+        Ui::ChevronDown
+    } else {
+        Ui::ChevronRight
+    };
     // A loaded folder without sub-folders gets no arrow (nothing to open).
-    let has_no_children = node.children.as_ref().is_some_and(|ch| {
-        ch.iter().all(|n| n.hidden && !s.show_hidden)
-    });
+    let has_no_children = node
+        .children
+        .as_ref()
+        .is_some_and(|ch| ch.iter().all(|n| n.hidden && !s.show_hidden));
     let chevron: Element<'a, Message> = if has_no_children {
         space().width(20).into()
     } else {
@@ -273,12 +292,10 @@ fn node_view<'a>(
                 col = node_view(col, child, section, depth + 1, s);
             }
         } else if node.loading {
-            col = col.push(
-                row![
-                    space().width(f32::from(depth + 1) * INDENT + 24.0),
-                    text("Loading…").size(12).color(c.muted)
-                ],
-            );
+            col = col.push(row![
+                space().width(f32::from(depth + 1) * INDENT + 24.0),
+                text("Loading…").size(12).color(c.muted)
+            ]);
         }
     }
     col
@@ -289,7 +306,9 @@ mod tests {
     use super::*;
 
     fn folder(path: &str) -> Node {
-        let label = Path::new(path).file_name().map_or(path.into(), |n| n.to_string_lossy().into());
+        let label = Path::new(path)
+            .file_name()
+            .map_or(path.into(), |n| n.to_string_lossy().into());
         Node::new(path.into(), label, NodeIcon::Folder)
     }
 
@@ -304,11 +323,21 @@ mod tests {
     fn reveal_opens_step_by_step() {
         let mut s = sidebar_with_home();
         // /h is the deepest root containing /h/a/b → open /h, load its children.
-        assert_eq!(s.reveal(Path::new("/h/a/b")), vec![(Section::Places, PathBuf::from("/h"))]);
+        assert_eq!(
+            s.reveal(Path::new("/h/a/b")),
+            vec![(Section::Places, PathBuf::from("/h"))]
+        );
         assert!(s.places[0].expanded);
         // Children of /h arrive; revealing again continues one level deeper.
-        s.set_children(Section::Places, Path::new("/h"), vec![folder("/h/a"), folder("/h/z")]);
-        assert_eq!(s.reveal(Path::new("/h/a/b")), vec![(Section::Places, PathBuf::from("/h/a"))]);
+        s.set_children(
+            Section::Places,
+            Path::new("/h"),
+            vec![folder("/h/a"), folder("/h/z")],
+        );
+        assert_eq!(
+            s.reveal(Path::new("/h/a/b")),
+            vec![(Section::Places, PathBuf::from("/h/a"))]
+        );
         s.set_children(Section::Places, Path::new("/h/a"), vec![folder("/h/a/b")]);
         // Now everything on the way is open, and /h/a/b itself is not opened.
         assert!(s.reveal(Path::new("/h/a/b")).is_empty());
@@ -321,7 +350,10 @@ mod tests {
     #[test]
     fn toggle_loads_once_then_just_folds() {
         let mut s = sidebar_with_home();
-        assert_eq!(s.toggle(Section::Drives, Path::new("/")), Some(PathBuf::from("/")));
+        assert_eq!(
+            s.toggle(Section::Drives, Path::new("/")),
+            Some(PathBuf::from("/"))
+        );
         s.set_children(Section::Drives, Path::new("/"), vec![folder("/etc")]);
         assert_eq!(s.toggle(Section::Drives, Path::new("/")), None); // closes
         assert!(!s.drives[0].expanded);

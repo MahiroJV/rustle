@@ -55,7 +55,10 @@ pub fn thumbnail_in(cache_dir: &Path, path: &Path) -> Result<Thumb, FsError> {
         return Err(FsError::Other(format!("no preview for {}", path.display())));
     }
 
-    let cached = cache_dir.join(format!("{}.png", cache_key(path, meta.len(), meta.modified().ok())));
+    let cached = cache_dir.join(format!(
+        "{}.png",
+        cache_key(path, meta.len(), meta.modified().ok())
+    ));
     // Cache hit: the small PNG decodes much faster than the original picture.
     if let Ok(img) = image::open(&cached) {
         return Ok(to_thumb(img));
@@ -164,7 +167,10 @@ mod tests {
         assert_eq!(cache_key(p, 10, t1), cache_key(p, 10, t1));
         assert_ne!(cache_key(p, 10, t1), cache_key(p, 10, t2)); // edited
         assert_ne!(cache_key(p, 10, t1), cache_key(p, 11, t1)); // resized
-        assert_ne!(cache_key(p, 10, t1), cache_key(Path::new("/pics/b.png"), 10, t1));
+        assert_ne!(
+            cache_key(p, 10, t1),
+            cache_key(Path::new("/pics/b.png"), 10, t1)
+        );
     }
 
     #[test]

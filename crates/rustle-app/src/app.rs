@@ -4,13 +4,14 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use iced::keyboard::Modifiers;
-use iced::widget::{button, column, container, image, mouse_area, opaque, row, space, stack, text};
 use iced::widget::scrollable::{AbsoluteOffset, RelativeOffset};
+use iced::widget::{button, column, container, image, mouse_area, opaque, row, space, stack, text};
 use iced::{Element, Fill, Subscription, Task, Theme};
 use rustle_core::{Entry, FileSystem, Layout, Settings, sort_entries, sort_entries_by};
 use rustle_fs::LocalFs;
 use rustle_fs::places::{self, Drive, Place};
 
+use crate::file_list::LIST_ID;
 use crate::icons::{self, Ui};
 use crate::keybinds;
 use crate::message::{Message, Nav};
@@ -19,7 +20,6 @@ use crate::sidebar::{self, Node, NodeIcon, Section, Sidebar};
 use crate::tab::{Tab, home_page_marker, shorten};
 use crate::theme::{self, Colors, SIDEBAR_WIDTH, panel, row_button, tab_button};
 use crate::thumbs::Thumbs;
-use crate::file_list::LIST_ID;
 use crate::{file_list, home_page, settings_page, view_menu};
 
 const TAB_TITLE_MAX: usize = 24;
@@ -272,7 +272,11 @@ impl App {
         }
         let cwd = self.tab().cwd.clone();
         let loads = self.sidebar.reveal(&cwd);
-        Task::batch(loads.into_iter().map(|(section, path)| self.load_children(section, path)))
+        Task::batch(
+            loads
+                .into_iter()
+                .map(|(section, path)| self.load_children(section, path)),
+        )
     }
 
     /// Put the current favorites, folders and drives into the sidebar.
@@ -282,7 +286,10 @@ impl App {
             .favorites
             .iter()
             .map(|p| {
-                let label = p.file_name().map_or_else(|| p.display().to_string(), |n| n.to_string_lossy().into_owned());
+                let label = p.file_name().map_or_else(
+                    || p.display().to_string(),
+                    |n| n.to_string_lossy().into_owned(),
+                );
                 Node::new(p.clone(), label, NodeIcon::Folder)
             })
             .collect();
@@ -306,7 +313,10 @@ impl App {
     fn restore_scroll(&self) -> Task<Message> {
         iced::widget::operation::scroll_to(
             LIST_ID,
-            AbsoluteOffset { x: 0.0, y: self.tab().scroll_y },
+            AbsoluteOffset {
+                x: 0.0,
+                y: self.tab().scroll_y,
+            },
         )
     }
 
@@ -574,7 +584,11 @@ impl App {
                 // Only Ctrl + wheel zooms; a plain wheel just scrolls the list.
                 if self.modifiers.command() {
                     let size = self.settings.view.icon_size;
-                    self.settings.view.icon_size = if y > 0.0 { size.bigger() } else { size.smaller() };
+                    self.settings.view.icon_size = if y > 0.0 {
+                        size.bigger()
+                    } else {
+                        size.smaller()
+                    };
                     if self.settings.view.icon_size != size {
                         return self.save_settings();
                     }
@@ -729,11 +743,17 @@ impl App {
         // 1. the normal window,
         // 2. an invisible full-window area: clicking anywhere outside the menu closes it,
         // 3. the menu itself, near the View button (top right).
-        let backdrop = mouse_area(space().width(Fill).height(Fill)).on_press(Message::CloseViewMenu);
+        let backdrop =
+            mouse_area(space().width(Fill).height(Fill)).on_press(Message::CloseViewMenu);
         let menu = container(opaque(view_menu::view(self.settings.view, c)))
             .width(Fill)
             .align_right(Fill)
-            .padding(iced::Padding { top: 96.0, right: 56.0, bottom: 0.0, left: 0.0 });
+            .padding(iced::Padding {
+                top: 96.0,
+                right: 56.0,
+                bottom: 0.0,
+                left: 0.0,
+            });
         stack![base, backdrop, menu].into()
     }
 
@@ -741,28 +761,36 @@ impl App {
     /// there are many), with the + button right after the last tab.
     fn tab_bar(&self, c: Colors) -> Element<'_, Message> {
         let can_close = self.tabs.len() > 1;
-        let tabs = self.tabs.iter().enumerate().fold(row![].spacing(4), |bar, (i, t)| {
-            let mut label = row![text(shorten(&t.title(), TAB_TITLE_MAX)).size(14).width(Fill)]
+        let tabs = self
+            .tabs
+            .iter()
+            .enumerate()
+            .fold(row![].spacing(4), |bar, (i, t)| {
+                let mut label = row![
+                    text(shorten(&t.title(), TAB_TITLE_MAX))
+                        .size(14)
+                        .width(Fill)
+                ]
                 .spacing(8)
                 .align_y(iced::Center);
-            // The last tab can't be closed, so it gets no × button.
-            if can_close {
-                label = label.push(
-                    button(icons::ui(Ui::Close, c.muted, 14.0))
-                        .padding(2)
-                        .style(row_button(c))
-                        .on_press(Message::CloseTab(t.id)),
-                );
-            }
-            let tab = button(label)
-                .width(Fill)
-                .padding([5, 10])
-                .style(tab_button(c, i == self.active))
-                .on_press(Message::SelectTab(i));
-            // Middle-click closes a tab, like in browsers.
-            let tab = mouse_area(tab).on_middle_press(Message::CloseTab(t.id));
-            bar.push(container(tab).width(Fill).max_width(TAB_MAX_WIDTH))
-        });
+                // The last tab can't be closed, so it gets no × button.
+                if can_close {
+                    label = label.push(
+                        button(icons::ui(Ui::Close, c.muted, 14.0))
+                            .padding(2)
+                            .style(row_button(c))
+                            .on_press(Message::CloseTab(t.id)),
+                    );
+                }
+                let tab = button(label)
+                    .width(Fill)
+                    .padding([5, 10])
+                    .style(tab_button(c, i == self.active))
+                    .on_press(Message::SelectTab(i));
+                // Middle-click closes a tab, like in browsers.
+                let tab = mouse_area(tab).on_middle_press(Message::CloseTab(t.id));
+                bar.push(container(tab).width(Fill).max_width(TAB_MAX_WIDTH))
+            });
 
         row![
             tabs,
@@ -789,7 +817,10 @@ impl App {
         };
         let bar = row![
             icon_button(Ui::Back, tab.history.can_back().then_some(Message::Back)),
-            icon_button(Ui::Forward, tab.history.can_forward().then_some(Message::Forward)),
+            icon_button(
+                Ui::Forward,
+                tab.history.can_forward().then_some(Message::Forward)
+            ),
             container(pathbar::view(tab, &self.home, self.editing_location, c)).width(Fill),
             icon_button(Ui::View, Some(Message::ToggleViewMenu)),
             icon_button(Ui::Settings, Some(Message::OpenSettings)),
@@ -797,7 +828,11 @@ impl App {
         .spacing(4)
         .align_y(iced::Center);
 
-        container(bar).padding(6).width(Fill).style(panel(c.surface)).into()
+        container(bar)
+            .padding(6)
+            .width(Fill)
+            .style(panel(c.surface))
+            .into()
     }
 
     fn sidebar(&self, c: Colors) -> Element<'_, Message> {
@@ -818,10 +853,12 @@ impl App {
         let hidden = tab.entries.iter().filter(|e| e.hidden).count();
         let left = match &self.error {
             Some(e) => text(e.clone()).color(c.danger),
-            None if tab.home_page => {
-                text(format!("{} folders · {} drives", self.places.len(), self.drives.len()))
-                    .color(c.muted)
-            }
+            None if tab.home_page => text(format!(
+                "{} folders · {} drives",
+                self.places.len(),
+                self.drives.len()
+            ))
+            .color(c.muted),
             None if tab.loading => text("Loading…").color(c.muted),
             None => text(format!("{} items · {hidden} hidden", tab.entries.len())).color(c.muted),
         };
@@ -858,10 +895,12 @@ mod tests {
     fn tilde_means_home() {
         let home = Path::new("/home/me");
         assert_eq!(expand_home("~", home), PathBuf::from("/home/me"));
-        assert_eq!(expand_home("~/Music", home), PathBuf::from("/home/me/Music"));
+        assert_eq!(
+            expand_home("~/Music", home),
+            PathBuf::from("/home/me/Music")
+        );
         assert_eq!(expand_home("/etc", home), PathBuf::from("/etc"));
         // "~bob" is another user's home in a shell; we don't guess, keep it as typed.
         assert_eq!(expand_home("~bob", home), PathBuf::from("~bob"));
     }
 }
-

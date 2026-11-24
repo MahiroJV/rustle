@@ -53,12 +53,19 @@ impl Tab {
     /// A new tab that opens on the Home page (its `cwd` is the home folder,
     /// loaded in the background, so the path bar works right away).
     pub fn on_home_page(id: u64, home: PathBuf) -> Self {
-        Self { home_page: true, ..Self::new(id, home) }
+        Self {
+            home_page: true,
+            ..Self::new(id, home)
+        }
     }
 
     /// Where this tab "is", as stored in the history.
     pub fn location(&self) -> PathBuf {
-        if self.home_page { home_page_marker() } else { self.cwd.clone() }
+        if self.home_page {
+            home_page_marker()
+        } else {
+            self.cwd.clone()
+        }
     }
 
     /// Folder name, or the whole path for a root like `/` or `C:\`.

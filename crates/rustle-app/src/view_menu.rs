@@ -15,7 +15,12 @@ pub fn view<'a>(v: ViewSettings, c: Colors) -> Element<'a, Message> {
 
     let layout = column![
         title("LAYOUT"),
-        radio("Details", Layout::Details, Some(v.layout), Message::SetLayout),
+        radio(
+            "Details",
+            Layout::Details,
+            Some(v.layout),
+            Message::SetLayout
+        ),
         radio("List", Layout::List, Some(v.layout), Message::SetLayout),
         radio("Icons", Layout::Icons, Some(v.layout), Message::SetLayout),
     ]
@@ -23,10 +28,30 @@ pub fn view<'a>(v: ViewSettings, c: Colors) -> Element<'a, Message> {
 
     let size = column![
         title("ICON SIZE"),
-        radio("Small", IconSize::Small, Some(v.icon_size), Message::SetIconSize),
-        radio("Medium", IconSize::Medium, Some(v.icon_size), Message::SetIconSize),
-        radio("Large", IconSize::Large, Some(v.icon_size), Message::SetIconSize),
-        radio("Extra large", IconSize::ExtraLarge, Some(v.icon_size), Message::SetIconSize),
+        radio(
+            "Small",
+            IconSize::Small,
+            Some(v.icon_size),
+            Message::SetIconSize
+        ),
+        radio(
+            "Medium",
+            IconSize::Medium,
+            Some(v.icon_size),
+            Message::SetIconSize
+        ),
+        radio(
+            "Large",
+            IconSize::Large,
+            Some(v.icon_size),
+            Message::SetIconSize
+        ),
+        radio(
+            "Extra large",
+            IconSize::ExtraLarge,
+            Some(v.icon_size),
+            Message::SetIconSize
+        ),
     ]
     .spacing(6);
 
@@ -34,11 +59,26 @@ pub fn view<'a>(v: ViewSettings, c: Colors) -> Element<'a, Message> {
         title("SORT BY"),
         radio("Name", SortKey::Name, Some(v.sort), Message::SetSort),
         radio("Size", SortKey::Size, Some(v.sort), Message::SetSort),
-        radio("Date modified", SortKey::Modified, Some(v.sort), Message::SetSort),
+        radio(
+            "Date modified",
+            SortKey::Modified,
+            Some(v.sort),
+            Message::SetSort
+        ),
         radio("Type", SortKey::Kind, Some(v.sort), Message::SetSort),
         row![
-            radio("Ascending", false, Some(v.descending), Message::SetDescending),
-            radio("Descending", true, Some(v.descending), Message::SetDescending),
+            radio(
+                "Ascending",
+                false,
+                Some(v.descending),
+                Message::SetDescending
+            ),
+            radio(
+                "Descending",
+                true,
+                Some(v.descending),
+                Message::SetDescending
+            ),
         ]
         .spacing(12),
     ]

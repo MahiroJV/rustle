@@ -4,10 +4,14 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use iced::widget::{Column, button, column, container, image, responsive, row, scrollable, space, svg, text};
 use iced::widget::text::Wrapping;
+use iced::widget::{
+    Column, button, column, container, image, responsive, row, scrollable, space, svg, text,
+};
 use iced::{ContentFit, Element, Fill, Length};
-use rustle_core::{Entry, FileKind, IconSize, Layout, SortKey, ViewSettings, extension, file_kind, format_size};
+use rustle_core::{
+    Entry, FileKind, IconSize, Layout, SortKey, ViewSettings, extension, file_kind, format_size,
+};
 
 use crate::dates::format_modified;
 use crate::icons;
@@ -56,7 +60,10 @@ pub fn view<'a>(
     c: Colors,
 ) -> Element<'a, Message> {
     // Only references, so this is cheap even for thousands of entries.
-    let visible: Vec<&'a Entry> = entries.iter().filter(|e| show_hidden || !e.hidden).collect();
+    let visible: Vec<&'a Entry> = entries
+        .iter()
+        .filter(|e| show_hidden || !e.hidden)
+        .collect();
     match view.layout {
         Layout::Details => details(visible, view, counts, scroll_y, c),
         Layout::List => list(visible, view.icon_size, scroll_y, c),
@@ -73,7 +80,12 @@ pub const OVERSCAN: usize = 10;
 
 /// Which rows (by index) to build: the ones on screen plus `OVERSCAN` more
 /// on each side. `pitch` is the height of one row including the gap.
-pub fn visible_range(count: usize, pitch: f32, offset_y: f32, viewport_h: f32) -> std::ops::Range<usize> {
+pub fn visible_range(
+    count: usize,
+    pitch: f32,
+    offset_y: f32,
+    viewport_h: f32,
+) -> std::ops::Range<usize> {
     if count == 0 {
         return 0..0;
     }
@@ -97,7 +109,9 @@ fn open_message(e: &Entry) -> Message {
 }
 
 fn icon<'a>(e: &Entry, px: f32) -> svg::Svg<'a> {
-    svg(icons::file_icon(&e.name, e.is_dir)).width(px).height(px)
+    svg(icons::file_icon(&e.name, e.is_dir))
+        .width(px)
+        .height(px)
 }
 
 /// "Image", "Code"… or, for unknown types, "XYZ file" from the extension.
@@ -167,7 +181,9 @@ fn details<'a>(
     let header = row![
         column_title("Name", SortKey::Name, Fill),
         // Item counts aren't a sort key, so this title isn't a button.
-        container(text("Items").size(13).color(c.muted)).width(ITEMS_W).padding([2, 4]),
+        container(text("Items").size(13).color(c.muted))
+            .width(ITEMS_W)
+            .padding([2, 4]),
         column_title("Size", SortKey::Size, SIZE_W.into()),
         column_title("Modified", SortKey::Modified, MODIFIED_W.into()),
         column_title("Type", SortKey::Kind, TYPE_W.into()),
@@ -191,10 +207,17 @@ fn details<'a>(
             } else {
                 String::new()
             };
-            let size = if e.is_dir { String::new() } else { format_size(e.size) };
+            let size = if e.is_dir {
+                String::new()
+            } else {
+                format_size(e.size)
+            };
             let cell = |s: String, w: f32| text(s).size(13).color(c.muted).width(w);
             let line = row![
-                row![icon(e, px), name_cell(&e.name, name_w)].spacing(8).align_y(iced::Center).width(Fill),
+                row![icon(e, px), name_cell(&e.name, name_w)]
+                    .spacing(8)
+                    .align_y(iced::Center)
+                    .width(Fill),
                 cell(items, ITEMS_W),
                 cell(size, SIZE_W),
                 cell(format_modified(e.modified), MODIFIED_W),
@@ -208,14 +231,21 @@ fn details<'a>(
     column![header, list].spacing(6).into()
 }
 
-fn list<'a>(entries: Vec<&'a Entry>, size: IconSize, scroll_y: f32, c: Colors) -> Element<'a, Message> {
+fn list<'a>(
+    entries: Vec<&'a Entry>,
+    size: IconSize,
+    scroll_y: f32,
+    c: Colors,
+) -> Element<'a, Message> {
     let px = row_icon_px(size);
     let pitch = row_height(px) + ROW_GAP;
     responsive(move |area| {
         let name_w = area.width - px - ROW_CHROME_W;
         virtual_rows(entries.len(), pitch, scroll_y, area.height, |i| {
             let e = entries[i];
-            let line = row![icon(e, px), name_cell(&e.name, name_w)].spacing(8).align_y(iced::Center);
+            let line = row![icon(e, px), name_cell(&e.name, name_w)]
+                .spacing(8)
+                .align_y(iced::Center);
             row_button_for(e, line, px, c)
         })
     })
@@ -418,7 +448,9 @@ mod perf_probe {
     #[test]
     #[ignore]
     fn time_building_bin() {
-        let mut entries = rustle_fs::LocalFs.list(std::path::Path::new("/usr/bin")).unwrap();
+        let mut entries = rustle_fs::LocalFs
+            .list(std::path::Path::new("/usr/bin"))
+            .unwrap();
         rustle_core::sort_entries(&mut entries);
         let counts: HashMap<PathBuf, Option<u64>> = HashMap::new();
         let thumbs = Thumbs::default();
@@ -427,27 +459,57 @@ mod perf_probe {
         // What one screen update builds now: the visible rows of a ~900 px
         // window, using the same row builder as the List layout.
         let pitch = row_height(row_icon_px(IconSize::Medium)) + ROW_GAP;
-        for (label, total) in [("all rows (old way)", entries.len()), ("virtual list (new)", entries.len())] {
+        for (label, total) in [
+            ("all rows (old way)", entries.len()),
+            ("virtual list (new)", entries.len()),
+        ] {
             let t = Instant::now();
             for _ in 0..5 {
-                let range = if label.starts_with("all") { 0..total } else { visible_range(total, pitch, 0.0, 900.0) };
+                let range = if label.starts_with("all") {
+                    0..total
+                } else {
+                    visible_range(total, pitch, 0.0, 900.0)
+                };
                 let n = range.len();
                 let mut col = Column::new();
                 for i in range {
                     let e = &entries[i];
-                    col = col.push(row_button_for(e, row![icon(e, 20.0), text(&e.name)], 20.0, c));
+                    col = col.push(row_button_for(
+                        e,
+                        row![icon(e, 20.0), text(&e.name)],
+                        20.0,
+                        c,
+                    ));
                 }
                 let _ = (col, n);
             }
-            println!("{label}: {} rows built, {:.2} ms per update",
-                if label.starts_with("all") { total } else { visible_range(total, pitch, 0.0, 900.0).len() },
-                t.elapsed().as_secs_f64() * 1000.0 / 5.0);
+            println!(
+                "{label}: {} rows built, {:.2} ms per update",
+                if label.starts_with("all") {
+                    total
+                } else {
+                    visible_range(total, pitch, 0.0, 900.0).len()
+                },
+                t.elapsed().as_secs_f64() * 1000.0 / 5.0
+            );
         }
         let t = Instant::now();
-        for e in &entries { let _ = crate::dates::format_modified(e.modified); }
-        println!("format_modified x{}: {:.1} ms", entries.len(), t.elapsed().as_secs_f64() * 1000.0);
+        for e in &entries {
+            let _ = crate::dates::format_modified(e.modified);
+        }
+        println!(
+            "format_modified x{}: {:.1} ms",
+            entries.len(),
+            t.elapsed().as_secs_f64() * 1000.0
+        );
         let t = Instant::now();
-        for e in &entries { let _ = icons::file_icon(&e.name, e.is_dir); }
-        println!("file_icon x{}: {:.1} ms", entries.len(), t.elapsed().as_secs_f64() * 1000.0);
+        for e in &entries {
+            let _ = icons::file_icon(&e.name, e.is_dir);
+        }
+        println!(
+            "file_icon x{}: {:.1} ms",
+            entries.len(),
+            t.elapsed().as_secs_f64() * 1000.0
+        );
     }
 }

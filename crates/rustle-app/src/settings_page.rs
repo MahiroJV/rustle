@@ -2,8 +2,8 @@
 
 use iced::widget::{button, column, container, radio, row, slider, text, toggler};
 use iced::{Element, Fill};
-use rustle_core::{Settings, ThemeChoice};
 use rustle_core::settings::{MAX_OPACITY, MIN_OPACITY};
+use rustle_core::{Settings, ThemeChoice};
 
 use crate::message::Message;
 use crate::theme::{Colors, panel, row_button};
@@ -17,7 +17,12 @@ pub fn view(s: &Settings, started_transparent: bool, c: Colors) -> Element<'_, M
         text("Theme"),
         row![
             radio("Dark", ThemeChoice::Dark, Some(s.theme), Message::SetTheme),
-            radio("Light", ThemeChoice::Light, Some(s.theme), Message::SetTheme),
+            radio(
+                "Light",
+                ThemeChoice::Light,
+                Some(s.theme),
+                Message::SetTheme
+            ),
         ]
         .spacing(20),
     ]

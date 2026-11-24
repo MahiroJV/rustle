@@ -49,7 +49,10 @@ impl Colors {
     /// The same palette with see-through backgrounds, for window opacity.
     /// Text and accent stay solid so they remain readable.
     pub fn with_opacity(self, opacity: f32) -> Self {
-        let fade = |c: Color| Color { a: c.a * opacity, ..c };
+        let fade = |c: Color| Color {
+            a: c.a * opacity,
+            ..c
+        };
         Self {
             bg: fade(self.bg),
             surface: fade(self.surface),
@@ -140,7 +143,11 @@ pub fn card_button(c: Colors) -> impl Fn(&Theme, button::Status) -> button::Styl
     move |_theme, status| {
         let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);
         button::Style {
-            background: Some(Background::Color(if hovered { c.raised } else { c.surface })),
+            background: Some(Background::Color(if hovered {
+                c.raised
+            } else {
+                c.surface
+            })),
             text_color: c.text,
             border: Border {
                 radius: RADIUS.into(),
@@ -166,7 +173,11 @@ pub fn nav_row(c: Colors, selected: bool) -> impl Fn(&Theme, button::Status) -> 
         }
         let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);
         button::Style {
-            background: Some(Background::Color(c.accent.scale_alpha(if hovered { 0.3 } else { 0.2 }))),
+            background: Some(Background::Color(c.accent.scale_alpha(if hovered {
+                0.3
+            } else {
+                0.2
+            }))),
             text_color: c.text,
             border: Border::default().rounded(RADIUS),
             ..button::Style::default()

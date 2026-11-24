@@ -66,7 +66,10 @@ mod tests {
 
     #[test]
     fn inside_home_starts_with_home() {
-        assert_eq!(labels("/home/me/src/rustle", "/home/me"), ["Home", "src", "rustle"]);
+        assert_eq!(
+            labels("/home/me/src/rustle", "/home/me"),
+            ["Home", "src", "rustle"]
+        );
         let c = crumbs(Path::new("/home/me/src"), Path::new("/home/me"));
         assert!(c[0].is_home);
         assert_eq!(c[1].path, PathBuf::from("/home/me/src"));
@@ -92,6 +95,13 @@ mod tests {
     fn each_crumb_path_is_the_path_up_to_it() {
         let c = crumbs(Path::new("/etc/ssh"), Path::new("/home/me"));
         let paths: Vec<_> = c.iter().map(|c| c.path.clone()).collect();
-        assert_eq!(paths, [PathBuf::from("/"), PathBuf::from("/etc"), PathBuf::from("/etc/ssh")]);
+        assert_eq!(
+            paths,
+            [
+                PathBuf::from("/"),
+                PathBuf::from("/etc"),
+                PathBuf::from("/etc/ssh")
+            ]
+        );
     }
 }

@@ -105,25 +105,52 @@ mod tests {
 
     #[test]
     fn ctrl_letters() {
-        assert_eq!(shortcut(&ch("t"), Some('t'), Modifiers::CTRL), Some(Message::NewTab(None)));
-        assert_eq!(shortcut(&ch("w"), Some('w'), Modifiers::CTRL), Some(Message::CloseActiveTab));
-        assert_eq!(shortcut(&ch("h"), Some('h'), Modifiers::CTRL), Some(Message::ToggleHidden));
-        assert_eq!(shortcut(&ch(","), Some(','), Modifiers::CTRL), Some(Message::OpenSettings));
+        assert_eq!(
+            shortcut(&ch("t"), Some('t'), Modifiers::CTRL),
+            Some(Message::NewTab(None))
+        );
+        assert_eq!(
+            shortcut(&ch("w"), Some('w'), Modifiers::CTRL),
+            Some(Message::CloseActiveTab)
+        );
+        assert_eq!(
+            shortcut(&ch("h"), Some('h'), Modifiers::CTRL),
+            Some(Message::ToggleHidden)
+        );
+        assert_eq!(
+            shortcut(&ch(","), Some(','), Modifiers::CTRL),
+            Some(Message::OpenSettings)
+        );
     }
 
     #[test]
     fn view_shortcuts() {
-        assert_eq!(shortcut(&ch("3"), Some('3'), Modifiers::CTRL), Some(Message::SetLayout(Layout::Icons)));
-        assert_eq!(shortcut(&ch("="), Some('='), Modifiers::CTRL), Some(Message::ZoomIn));
+        assert_eq!(
+            shortcut(&ch("3"), Some('3'), Modifiers::CTRL),
+            Some(Message::SetLayout(Layout::Icons))
+        );
+        assert_eq!(
+            shortcut(&ch("="), Some('='), Modifiers::CTRL),
+            Some(Message::ZoomIn)
+        );
         // Ctrl+Shift+= types "+" on most keyboards: still zoom in.
-        assert_eq!(shortcut(&ch("+"), Some('='), Modifiers::CTRL | Modifiers::SHIFT), Some(Message::ZoomIn));
-        assert_eq!(shortcut(&ch("-"), Some('-'), Modifiers::CTRL), Some(Message::ZoomOut));
+        assert_eq!(
+            shortcut(&ch("+"), Some('='), Modifiers::CTRL | Modifiers::SHIFT),
+            Some(Message::ZoomIn)
+        );
+        assert_eq!(
+            shortcut(&ch("-"), Some('-'), Modifiers::CTRL),
+            Some(Message::ZoomOut)
+        );
     }
 
     #[test]
     fn other_keyboard_layout_still_works() {
         // On a Russian layout the T key types "е", but its Latin letter is 't'.
-        assert_eq!(shortcut(&ch("е"), Some('t'), Modifiers::CTRL), Some(Message::NewTab(None)));
+        assert_eq!(
+            shortcut(&ch("е"), Some('t'), Modifiers::CTRL),
+            Some(Message::NewTab(None))
+        );
     }
 
     #[test]
@@ -134,12 +161,27 @@ mod tests {
     #[test]
     fn navigation_keys() {
         let named = |n| Key::Named(n);
-        assert_eq!(shortcut(&named(Named::ArrowLeft), None, Modifiers::ALT), Some(Message::Back));
-        assert_eq!(shortcut(&named(Named::ArrowRight), None, Modifiers::ALT), Some(Message::Forward));
-        assert_eq!(shortcut(&named(Named::Backspace), None, Modifiers::empty()), Some(Message::Up));
-        assert_eq!(shortcut(&named(Named::Tab), None, Modifiers::CTRL | Modifiers::SHIFT), Some(Message::PrevTab));
+        assert_eq!(
+            shortcut(&named(Named::ArrowLeft), None, Modifiers::ALT),
+            Some(Message::Back)
+        );
+        assert_eq!(
+            shortcut(&named(Named::ArrowRight), None, Modifiers::ALT),
+            Some(Message::Forward)
+        );
+        assert_eq!(
+            shortcut(&named(Named::Backspace), None, Modifiers::empty()),
+            Some(Message::Up)
+        );
+        assert_eq!(
+            shortcut(&named(Named::Tab), None, Modifiers::CTRL | Modifiers::SHIFT),
+            Some(Message::PrevTab)
+        );
         // Plain arrow keys are left alone (they'll move the selection later).
-        assert_eq!(shortcut(&named(Named::ArrowLeft), None, Modifiers::empty()), None);
+        assert_eq!(
+            shortcut(&named(Named::ArrowLeft), None, Modifiers::empty()),
+            None
+        );
     }
 
     #[test]

@@ -40,14 +40,20 @@ mod tests {
     use chrono::NaiveDate;
 
     fn at(y: i32, m: u32, d: u32, h: u32, min: u32) -> NaiveDateTime {
-        NaiveDate::from_ymd_opt(y, m, d).unwrap().and_hms_opt(h, min, 0).unwrap()
+        NaiveDate::from_ymd_opt(y, m, d)
+            .unwrap()
+            .and_hms_opt(h, min, 0)
+            .unwrap()
     }
 
     #[test]
     fn friendly_dates() {
         let now = at(2026, 11, 24, 18, 0);
         assert_eq!(format_date(at(2026, 11, 24, 9, 5), now), "Today, 09:05");
-        assert_eq!(format_date(at(2026, 11, 23, 17, 25), now), "Yesterday, 17:25");
+        assert_eq!(
+            format_date(at(2026, 11, 23, 17, 25), now),
+            "Yesterday, 17:25"
+        );
         assert_eq!(format_date(at(2026, 3, 2, 8, 0), now), "Mar 2, 08:00");
         assert_eq!(format_date(at(2025, 3, 23, 8, 0), now), "Mar 23, 2025");
     }
@@ -55,7 +61,10 @@ mod tests {
     #[test]
     fn yesterday_across_a_new_year() {
         let now = at(2027, 1, 1, 10, 0);
-        assert_eq!(format_date(at(2026, 12, 31, 23, 59), now), "Yesterday, 23:59");
+        assert_eq!(
+            format_date(at(2026, 12, 31, 23, 59), now),
+            "Yesterday, 23:59"
+        );
     }
 
     #[test]

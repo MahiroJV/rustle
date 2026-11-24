@@ -39,7 +39,11 @@ pub fn view<'a>(places: &'a [Place], drives: &'a [Drive], c: Colors) -> Element<
 
     let drive_cards = drives.iter().map(|d| {
         let used = used_fraction(d.free, d.total);
-        let bar_color = if used >= NEARLY_FULL { c.danger } else { c.accent };
+        let bar_color = if used >= NEARLY_FULL {
+            c.danger
+        } else {
+            c.accent
+        };
         let card = column![
             row![
                 icons::ui(Ui::Drive, c.text, 20.0),

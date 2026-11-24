@@ -41,10 +41,9 @@ pub fn view<'a>(tab: &'a Tab, home: &Path, editing: bool, c: Colors) -> Element<
 
     let pieces = crumbs(&tab.cwd, home);
     let last = pieces.len().saturating_sub(1);
-    let buttons = pieces
-        .into_iter()
-        .enumerate()
-        .fold(row![].spacing(2).align_y(iced::Center), |bar, (i, crumb)| {
+    let buttons = pieces.into_iter().enumerate().fold(
+        row![].spacing(2).align_y(iced::Center),
+        |bar, (i, crumb)| {
             let current = i == last;
             let mut label = row![].spacing(6).align_y(iced::Center);
             if crumb.is_home {
@@ -53,14 +52,19 @@ pub fn view<'a>(tab: &'a Tab, home: &Path, editing: bool, c: Colors) -> Element<
             }
             label = label.push(text(crumb.label));
 
-            let bar = if i > 0 { bar.push(text("/").color(c.muted)) } else { bar };
+            let bar = if i > 0 {
+                bar.push(text("/").color(c.muted))
+            } else {
+                bar
+            };
             bar.push(
                 button(label)
                     .padding([4, 8])
                     .style(crumb_button(c, current))
                     .on_press(Message::Navigate(crumb.path)),
             )
-        });
+        },
+    );
 
     // Long paths scroll sideways and stay pinned to the end, so the current
     // folder is always visible. The scrollbar is hidden (zero width).

@@ -52,9 +52,7 @@ pub fn sort_entries_by(entries: &mut [Entry], key: SortKey, descending: bool) {
             SortKey::Size if a.is_dir && b.is_dir => std::cmp::Ordering::Equal,
             SortKey::Size => a.size.cmp(&b.size),
             SortKey::Modified => a.modified.cmp(&b.modified),
-            SortKey::Kind => {
-                file_kind(&a.name, a.is_dir).cmp(&file_kind(&b.name, b.is_dir))
-            }
+            SortKey::Kind => file_kind(&a.name, a.is_dir).cmp(&file_kind(&b.name, b.is_dir)),
         };
         folders_first.then(if descending { by_key.reverse() } else { by_key })
     });
@@ -109,8 +107,16 @@ mod tests {
 
     #[test]
     fn by_size_descending_keeps_folders_on_top() {
-        let sized = |name, size| Entry { size, ..e(name, false) };
-        let mut v = vec![sized("small", 1), e("dir", true), sized("big", 900), sized("mid", 50)];
+        let sized = |name, size| Entry {
+            size,
+            ..e(name, false)
+        };
+        let mut v = vec![
+            sized("small", 1),
+            e("dir", true),
+            sized("big", 900),
+            sized("mid", 50),
+        ];
         sort_entries_by(&mut v, SortKey::Size, true);
         assert_eq!(names(&v), ["dir", "big", "mid", "small"]);
     }
