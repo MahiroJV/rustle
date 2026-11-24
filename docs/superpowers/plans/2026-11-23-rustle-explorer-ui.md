@@ -246,6 +246,23 @@ crates/rustle-app/src/
 
 ---
 
+## Phase 2b — Icons & View menu (added 2026-11-24, spec §7)
+
+### Task 5a: Icons
+- Bundle the Material file and folder icons + the Lucide button icons (with LICENSE files) under `crates/rustle-app/assets/icons/`.
+- Core `kind.rs`: `pub enum FileKind`, `pub fn file_kind(name: &str, is_dir: bool) -> FileKind`, `FileKind::label()`, with unit tests per extension group.
+- App `icons.rs`: a pure `pub fn icon_name(name: &str, is_dir: bool) -> &'static str` (special file name → extension → folder name → plain), unit-tested; `pub fn file_icon(name, is_dir) -> svg::Handle` loaded once via `LazyLock`; `pub enum Ui` + `pub fn ui(icon: Ui, color: Color, size: f32) -> Svg` for tinted Lucide icons.
+- Replace the emoji in the file list and the text arrows/⚙/×/+ in the toolbar and tabs.
+
+### Task 5b: View menu (layouts, icon size, sort)
+- `Entry` gains `modified: Option<SystemTime>`. Core `SortKey { Name, Size, Modified, Kind }` + `sort_entries_by(entries, key, descending)`, with folders always first (tests).
+- `Settings` gains `view: ViewSettings { layout: Layout, icon_size: IconSize, sort: SortKey, descending: bool, previews: bool }`, with serde defaults (Details, Medium, Name, asc, off).
+- View button → a popover menu (same overlay technique as Task 10's right-click menu). Details header click sorts. Ctrl+wheel and Ctrl+1/2/3 go in `keybinds.rs`.
+
+### Task 5c: Picture previews
+- `rustle-fs` `thumbs.rs`: `pub fn thumbnail(path: &Path, max_px: u32) -> Result<Vec<u8> /*PNG*/, FsError>` with the cache in `dirs::cache_dir()/rustle/thumbs/<hash>.png`, keyed by path + len + mtime (test: same input hits the cache, a changed mtime misses it).
+- The app requests thumbnails only for visible image entries in the Icons layout, on `spawn_blocking`, at most 4 at a time, and stores `image::Handle`s in an LRU of 500.
+
 ## Phase 3 — Sidebar
 
 ### Task 6: Path chain for "follow current folder"

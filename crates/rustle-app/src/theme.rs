@@ -100,6 +100,27 @@ pub fn row_button(c: Colors) -> impl Fn(&Theme, button::Status) -> button::Style
     }
 }
 
+/// A tab in the tab bar. The active tab is filled; the others are muted
+/// until hovered.
+pub fn tab_button(c: Colors, active: bool) -> impl Fn(&Theme, button::Status) -> button::Style {
+    move |_theme, status| {
+        let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);
+        let background = if active {
+            Some(Background::Color(c.surface))
+        } else if hovered {
+            Some(Background::Color(c.raised))
+        } else {
+            None
+        };
+        button::Style {
+            background,
+            text_color: if active || hovered { c.text } else { c.muted },
+            border: Border::default().rounded(RADIUS),
+            ..button::Style::default()
+        }
+    }
+}
+
 /// A rounded box filled with `color` (sidebar, toolbar, settings card…).
 pub fn panel(color: Color) -> impl Fn(&Theme) -> container::Style {
     move |_theme| container::Style {

@@ -2,8 +2,11 @@
 
 mod app;
 mod file_list;
+mod icons;
+mod keybinds;
 mod message;
 mod settings_page;
+mod tab;
 mod theme;
 
 use app::App;
@@ -27,7 +30,8 @@ fn main() -> iced::Result {
         App::update,
         App::view,
     )
-    .title("Rustle")
+    .title(App::title)
+    .subscription(App::subscription)
     .theme(App::theme)
     .style(App::style)
     .window(window)

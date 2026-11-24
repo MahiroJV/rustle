@@ -29,7 +29,7 @@ blocks the window.
 ## Non-goals (this round)
 
 - Writing our own cloud API clients (decided: rclone does it).
-- Grid/icon view, thumbnails, file preview pane.
+- File preview pane. (Grid view and picture thumbnails were added on 2026-11-24, see §7.)
 - "Open with…" app picker (default app only).
 - Search.
 - Drag and drop (between tabs, sidebar or other apps).
@@ -217,6 +217,20 @@ All ops are on the `FileSystem` trait so cloud mounts get them too.
 - Linux needs FUSE (`fuse3`); the "rclone missing" hint mentions it.
 - A mount that fails (offline, expired sign-in) shows the rclone error on
   the account node with a "Retry" item; it never blocks local browsing.
+
+### 7. View menu & icons (added 2026-11-24)
+
+- **File and folder icons:** from **Material Icon Theme** (MIT, github.com/material-extensions/vscode-material-icon-theme). They're colorful, one per file type, and special folders (src, docs, Downloads, .git…) get their own icons. Only the icons we use are bundled, in `crates/rustle-app/assets/icons/material/`, with the theme's LICENSE.
+  - The theme generates its plain `folder.svg` and `file.svg` at build time, so Rustle ships its own two in the same style. Plain folders are copper `#E07A3F` *(my call)*; plain files are `#90A4AE`, as in the theme.
+  - The user may draw their own icons later and swap them in.
+- **Button icons:** **Lucide** (ISC), single color and tinted to the theme, in `assets/icons/lucide/`.
+- **File kind** (core): Folder, Image, Audio, Video, Archive, Code, Document, Text, App, Other, chosen by extension. It's used for the Type column, "sort by type" and the fallback icon.
+- **View button** in the toolbar opens a menu:
+  - **Layout:** Details (Name · Size · Date modified · Type) / List / Icons (fluid grid).
+  - **Icon size:** Small / Medium / Large / Extra large. Ctrl + mouse wheel zooms, and Ctrl+1/2/3 switches the layout.
+  - **Sort by:** Name / Size / Date modified / Type, ascending or descending. Clicking a column header sorts too, and folders always stay on top.
+  - **Picture previews:** thumbnails made in the background with the `image` crate and cached in `~/.cache/rustle/thumbs`, keyed by path + size + modified time. Only images under 50 MB (PNG, JPEG, GIF, WebP, BMP) get one.
+- The view is global, saved in Settings *(my call; per-folder views can come later)*.
 
 ## Build order
 
