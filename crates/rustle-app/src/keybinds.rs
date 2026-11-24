@@ -16,6 +16,11 @@ pub fn on_event(event: Event, status: event::Status, _window: window::Id) -> Opt
             modifiers,
             ..
         }) => {
+            // Escape always counts, even inside a text field: it's how you
+            // leave the path field without going anywhere.
+            if key == Key::Named(Named::Escape) {
+                return Some(Message::Escape);
+            }
             // A focused text field already used this key (e.g. Backspace
             // while typing a path), so it must not also navigate.
             if status == event::Status::Captured {
@@ -56,7 +61,7 @@ pub fn shortcut(key: &Key, latin: Option<char>, mods: Modifiers) -> Option<Messa
     match latin?.to_ascii_lowercase() {
         't' if !shift => Some(Message::NewTab(None)),
         'w' if !shift => Some(Message::CloseActiveTab),
-        'l' if !shift => Some(Message::FocusLocation),
+        'l' if !shift => Some(Message::StartEditLocation),
         'h' if !shift => Some(Message::ToggleHidden),
         ',' => Some(Message::OpenSettings),
         _ => None,

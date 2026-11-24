@@ -33,10 +33,13 @@ pub enum Message {
         result: Result<Vec<Entry>, String>,
     },
 
-    // Location bar
+    // Path bar
+    /// Switch the path bar from buttons to a text field (click or Ctrl+L).
+    StartEditLocation,
     LocationChanged(String),
     LocationSubmit,
-    FocusLocation,
+    /// Escape: leave typing mode (later also closes menus).
+    Escape,
 
     // Tabs
     /// `None` opens the new tab in the home folder.

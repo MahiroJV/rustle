@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use iced::widget::{button, column, container, mouse_area, row, text, text_input};
+use iced::widget::{button, column, container, mouse_area, row, text};
 use iced::{Element, Fill, Subscription, Task, Theme};
 use rustle_core::{FileSystem, Settings, sort_entries};
 use rustle_fs::LocalFs;
@@ -11,13 +11,13 @@ use rustle_fs::LocalFs;
 use crate::icons::{self, Ui};
 use crate::keybinds;
 use crate::message::{Message, Nav};
+use crate::pathbar::{self, LOCATION_ID};
 use crate::tab::{Tab, shorten};
 use crate::theme::{self, Colors, SIDEBAR_WIDTH, panel, row_button, tab_button};
 use crate::{file_list, settings_page};
 
-/// The location bar's widget id, so Ctrl+L can focus it.
-const LOCATION_ID: &str = "location";
 const TAB_TITLE_MAX: usize = 24;
+const TAB_MAX_WIDTH: f32 = 220.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Page {
@@ -36,6 +36,10 @@ pub struct App {
     tabs: Vec<Tab>,
     active: usize,
     next_tab_id: u64,
+    /// Home folder, looked up once (the path bar shows it as "Home").
+    home: PathBuf,
+    /// The path bar shows a text field (true) instead of buttons (false).
+    editing_location: bool,
     error: Option<String>,
 }
 
@@ -51,6 +55,8 @@ impl App {
             tabs: vec![Tab::new(0, home.clone())],
             active: 0,
             next_tab_id: 1,
+            home: home.clone(),
+            editing_location: false,
             error: None,
         };
         let task = app.load(0, home, Nav::Reload);
@@ -164,7 +170,10 @@ impl App {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             // ---- browsing ----
-            Message::Navigate(path) => return self.go(path, Nav::Fresh),
+            Message::Navigate(path) => {
+                self.editing_location = false;
+                return self.go(path, Nav::Fresh);
+            }
             Message::Up => {
                 if let Some(parent) = self.tab().cwd.parent().map(PathBuf::from) {
                     return self.go(parent, Nav::Fresh);
@@ -223,29 +232,37 @@ impl App {
                 }
             }
 
-            // ---- location bar ----
-            Message::LocationChanged(input) => {
-                self.tabs[self.active].location_input = input;
-            }
-            Message::LocationSubmit => {
-                let path = expand_home(self.tab().location_input.trim(), &self.fs.home());
-                return self.go(path, Nav::Fresh);
-            }
-            Message::FocusLocation => {
+            // ---- path bar ----
+            Message::StartEditLocation => {
+                self.editing_location = true;
+                let tab = &mut self.tabs[self.active];
+                tab.location_input = tab.cwd.display().to_string();
+                // The text field appears in the next `view`; then these
+                // put the cursor in it and select the text, ready to type over.
                 return Task::batch([
                     iced::widget::operation::focus(LOCATION_ID),
                     iced::widget::operation::select_all(LOCATION_ID),
                 ]);
             }
+            Message::LocationChanged(input) => {
+                self.tabs[self.active].location_input = input;
+            }
+            Message::LocationSubmit => {
+                self.editing_location = false;
+                let path = expand_home(self.tab().location_input.trim(), &self.home);
+                return self.go(path, Nav::Fresh);
+            }
+            Message::Escape => self.editing_location = false,
 
             // ---- tabs ----
             Message::NewTab(path) => {
-                let dir = path.unwrap_or_else(|| self.fs.home());
+                let dir = path.unwrap_or_else(|| self.home.clone());
                 let id = self.next_tab_id;
                 self.next_tab_id += 1;
                 self.tabs.push(Tab::new(id, dir.clone()));
                 self.active = self.tabs.len() - 1;
                 self.page = Page::Files;
+                self.editing_location = false;
                 return self.load(id, dir, Nav::Reload);
             }
             Message::CloseTab(id) => self.close_tab(id),
@@ -254,6 +271,7 @@ impl App {
                 if index < self.tabs.len() {
                     self.active = index;
                     self.error = None;
+                    self.editing_location = false;
                 }
             }
             Message::NextTab => self.active = (self.active + 1) % self.tabs.len(),
@@ -303,33 +321,39 @@ impl App {
             Page::Settings => settings_page::view(&self.settings, self.started_transparent, c),
         };
 
-        let body = row![
+        // GNOME Files layout: the sidebar runs the full height on the left;
+        // everything else (header bar, tabs, files, status) is on the right.
+        // The tab bar is always visible, on top, like in a web browser.
+        let right = column![
+            self.tab_bar(c),
+            self.header_bar(c),
+            container(main).width(Fill).height(Fill).padding([4, 8]),
+            self.status_bar(c),
+        ]
+        .spacing(8);
+
+        row![
             container(self.sidebar(c))
                 .width(SIDEBAR_WIDTH)
                 .height(Fill)
                 .padding(10)
                 .style(panel(c.surface)),
-            container(main).width(Fill).height(Fill).padding([4, 8]),
-        ]
-        .spacing(8);
-
-        column![
-            self.tab_bar(c),
-            self.toolbar(c),
-            body.height(Fill),
-            self.status_bar(c)
+            right.width(Fill).height(Fill),
         ]
         .spacing(8)
         .padding(8)
         .into()
     }
 
+    /// Browser-style tabs: each up to `TAB_MAX_WIDTH` wide (narrower when
+    /// there are many), with the + button right after the last tab.
     fn tab_bar(&self, c: Colors) -> Element<'_, Message> {
         let can_close = self.tabs.len() > 1;
         let tabs = self.tabs.iter().enumerate().fold(row![].spacing(4), |bar, (i, t)| {
-            let mut label = row![text(shorten(&t.title(), TAB_TITLE_MAX)).size(14)]
+            let mut label = row![text(shorten(&t.title(), TAB_TITLE_MAX)).size(14).width(Fill)]
                 .spacing(8)
                 .align_y(iced::Center);
+            // The last tab can't be closed, so it gets no × button.
             if can_close {
                 label = label.push(
                     button(icons::ui(Ui::Close, c.muted, 14.0))
@@ -339,11 +363,13 @@ impl App {
                 );
             }
             let tab = button(label)
-                .padding([4, 10])
+                .width(Fill)
+                .padding([5, 10])
                 .style(tab_button(c, i == self.active))
                 .on_press(Message::SelectTab(i));
             // Middle-click closes a tab, like in browsers.
-            bar.push(mouse_area(tab).on_middle_press(Message::CloseTab(t.id)))
+            let tab = mouse_area(tab).on_middle_press(Message::CloseTab(t.id));
+            bar.push(container(tab).width(Fill).max_width(TAB_MAX_WIDTH))
         });
 
         row![
@@ -358,10 +384,11 @@ impl App {
         .into()
     }
 
-    fn toolbar(&self, c: Colors) -> Element<'_, Message> {
+    /// Back / forward, the path bar, new tab, settings.
+    fn header_bar(&self, c: Colors) -> Element<'_, Message> {
         let tab = self.tab();
         // A disabled button (msg = None) gets a grey icon.
-        let nav = |icon: Ui, msg: Option<Message>| {
+        let icon_button = |icon: Ui, msg: Option<Message>| {
             let color = if msg.is_some() { c.text } else { c.muted };
             button(icons::ui(icon, color, 18.0))
                 .padding([5, 8])
@@ -369,15 +396,10 @@ impl App {
                 .on_press_maybe(msg)
         };
         let bar = row![
-            nav(Ui::Back, tab.history.can_back().then_some(Message::Back)),
-            nav(Ui::Forward, tab.history.can_forward().then_some(Message::Forward)),
-            nav(Ui::Up, tab.cwd.parent().map(|_| Message::Up)),
-            text_input("Type a path and press Enter", &tab.location_input)
-                .id(LOCATION_ID)
-                .on_input(Message::LocationChanged)
-                .on_submit(Message::LocationSubmit)
-                .padding([4, 8]),
-            nav(Ui::Settings, Some(Message::OpenSettings)),
+            icon_button(Ui::Back, tab.history.can_back().then_some(Message::Back)),
+            icon_button(Ui::Forward, tab.history.can_forward().then_some(Message::Forward)),
+            container(pathbar::view(tab, &self.home, self.editing_location, c)).width(Fill),
+            icon_button(Ui::Settings, Some(Message::OpenSettings)),
         ]
         .spacing(4)
         .align_y(iced::Center);

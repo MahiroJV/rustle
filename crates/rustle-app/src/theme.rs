@@ -121,6 +121,20 @@ pub fn tab_button(c: Colors, active: bool) -> impl Fn(&Theme, button::Status) ->
     }
 }
 
+/// A piece of the path bar. The current folder (the last piece) is filled
+/// and in normal text; the others are muted until hovered.
+pub fn crumb_button(c: Colors, current: bool) -> impl Fn(&Theme, button::Status) -> button::Style {
+    move |_theme, status| {
+        let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);
+        button::Style {
+            background: (current || hovered).then_some(Background::Color(c.raised)),
+            text_color: if current || hovered { c.text } else { c.muted },
+            border: Border::default().rounded(RADIUS),
+            ..button::Style::default()
+        }
+    }
+}
+
 /// A rounded box filled with `color` (sidebar, toolbar, settings card…).
 pub fn panel(color: Color) -> impl Fn(&Theme) -> container::Style {
     move |_theme| container::Style {

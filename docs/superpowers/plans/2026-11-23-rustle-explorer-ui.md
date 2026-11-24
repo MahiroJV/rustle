@@ -259,6 +259,8 @@ crates/rustle-app/src/
 - `Settings` gains `view: ViewSettings { layout: Layout, icon_size: IconSize, sort: SortKey, descending: bool, previews: bool }`, with serde defaults (Details, Medium, Name, asc, off).
 - View button → a popover menu (same overlay technique as Task 10's right-click menu). Details header click sorts. Ctrl+wheel and Ctrl+1/2/3 go in `keybinds.rs`.
 
+Also in 5b: an **Items** column in Details, counted per visible folder in the background (`rustle-fs`: `pub fn count_items(dir: &Path) -> Result<u64, FsError>`, no recursion), showing "—" on error.
+
 ### Task 5c: Picture previews
 - `rustle-fs` `thumbs.rs`: `pub fn thumbnail(path: &Path, max_px: u32) -> Result<Vec<u8> /*PNG*/, FsError>` with the cache in `dirs::cache_dir()/rustle/thumbs/<hash>.png`, keyed by path + len + mtime (test: same input hits the cache, a changed mtime misses it).
 - The app requests thumbnails only for visible image entries in the Icons layout, on `spawn_blocking`, at most 4 at a time, and stores `image::Handle`s in an LRU of 500.
@@ -442,6 +444,13 @@ crates/rustle-app/src/
 
 ---
 
+### Task 10b: Clipboard bar and details panel (spec §8)
+- Clipboard bar: shown while `App.clipboard` is `Some`. It reads "N items ready to paste" or "N items ready to move", with Paste here / Show (a popover listing the paths) / Cancel.
+- Details panel: `details.rs`, toggled by a toolbar button and F9, and saved in `Settings.show_details`. It shows the selection, or the cwd when nothing is selected.
+  - The metadata is read on `spawn_blocking`.
+  - Folder size: `rustle-fs` `pub fn dir_size(dir: &Path, cancel: &AtomicBool) -> Result<u64, FsError>`. It walks the tree without following symlinks and stops when `cancel` is set. Selecting something else sets `cancel`.
+  - Tests: `dir_size_sums_nested_files`, `dir_size_stops_when_cancelled`.
+
 ## Phase 5 — Cloud (rclone)
 
 ### Task 11: rclone output parsing (pure)
@@ -550,6 +559,40 @@ crates/rustle-app/src/
 - [ ] **Step 4:** Commit `feat(app): cloud accounts via rclone`
 
 ---
+
+## Phase 6 — Start page, activity, tags, background (spec §8)
+
+### Task 14: Start page
+New tabs and startup open `Page::Start` (tab cwd = home, so Back works from it). It shows user-folder cards and drive cards with usage bars, built from Task 7's places. A test for the pure `usage_fraction(free, total) -> f32` covers `total == 0` → 0.0.
+
+### Task 15: Recent & Frequent
+- `rustle-core` `activity.rs`: `Activity { entries: Vec<Visit { path, last: SystemTime, count: u32 }> }` with `record(path, now)` (bumps count and time, capped at 200 entries, dropping the oldest), `recent(n)`, `frequent(n)`. Unit tests cover capping and ordering.
+- Stored in `rustle-fs` (`data_dir/rustle/activity.json`) the same way as settings (atomic write, corrupt file → empty).
+- The page has Favorites / Recent / Frequent / Tagged sections, plus a Clear history button.
+
+### Task 16: Tags
+- `rustle-core` `tags.rs`: `TagColor` (7 colors), `Tags { map: HashMap<PathBuf, Vec<Tag>> }`. `rename_path(old, new)` also moves the tags of every child path. Tests: tags on a folder's children follow a folder rename.
+- Stored in `data_dir/rustle/tags.json`. Tag dots show in the list. The right-click menu gets a Tags submenu. Task 9's move/rename call `rename_path`.
+
+### Task 17: Background picture
+`Settings.background: Option<PathBuf>`. The image is loaded on `spawn_blocking` and drawn under everything with `stack!`, covering the window (`ContentFit::Cover`). A missing or invalid file falls back to no picture and shows an error in the status bar. The Settings page gets "Choose…" (a file dialog via the `rfd` crate) and "Remove".
+
+## Phase 7 — Power features (spec §9)
+
+### Task 18: Filter
+Core `pub fn matches_filter(name: &str, filter: &str) -> bool`: case-insensitive contains, or a glob when `*`/`?` appear. Tests: `"png"` matches `Cat.PNG`; `"*.rs"` matches `main.rs` but not `main.rs.bak`.
+
+### Task 19: Quick view
+An overlay with `stack!`, opened by Space on the selection. It reads previews on `spawn_blocking`: images via the `image` crate (reusing 5c), text up to 64 KB with lossy UTF-8. ←/→ move, Escape closes.
+
+### Task 20: Search
+`rustle-fs` `search(root, query, cancel: &AtomicBool, send: impl FnMut(PathBuf))` walks without following symlinks. Core `fuzzy_match(name, query) -> bool` (case-insensitive substring, or edit distance ≤ 1 for query words of 4+ letters). Results stream into the app via `Task::run`/channel, and a new query cancels the old one. Tests cover matching, typos and cancellation.
+
+### Task 21: Split view
+`Tab` gets `panes: Vec<Pane>` (1 or 2) + `focused: usize`. A pane holds today's cwd/entries/history. F3 toggles; "Copy/Move to other pane" uses Task 9's `copy`/`move_to`.
+
+### Task 22: Zip
+`rustle-fs` `compress(paths, dest_zip)` and `extract(zip, dest_dir)` with the `zip` crate. Extract rejects entries with `..` or absolute paths (zip-slip). Tests: round trip, and a zip-slip entry → error.
 
 ## Done when
 

@@ -151,15 +151,15 @@ pub fn icon_name(name: &str, is_dir: bool) -> &'static str {
 pub enum Ui {
     Back,
     Forward,
-    Up,
     Settings,
     Close,
     Plus,
+    Home,
 }
 
 /// Same order as the `Ui` enum: `Ui::Back as usize` is index 0, and so on.
 static LUCIDE: &[(&str, &[u8])] = bundle!("lucide":
-    "arrow-left", "arrow-right", "arrow-up", "settings", "x", "plus");
+    "arrow-left", "arrow-right", "settings", "x", "plus", "house");
 
 static UI_ICONS: LazyLock<Vec<svg::Handle>> = LazyLock::new(|| {
     LUCIDE
@@ -239,7 +239,8 @@ mod tests {
 
     #[test]
     fn ui_enum_matches_lucide_list() {
-        assert_eq!(LUCIDE.len(), Ui::Plus as usize + 1);
+        assert_eq!(LUCIDE.len(), Ui::Home as usize + 1);
+        assert_eq!(LUCIDE[Ui::Home as usize].0, "house");
         assert_eq!(LUCIDE[Ui::Back as usize].0, "arrow-left");
         assert_eq!(LUCIDE[Ui::Close as usize].0, "x");
     }

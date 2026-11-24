@@ -5,6 +5,7 @@ mod file_list;
 mod icons;
 mod keybinds;
 mod message;
+mod pathbar;
 mod settings_page;
 mod tab;
 mod theme;

@@ -232,6 +232,34 @@ All ops are on the `FileSystem` trait so cloud mounts get them too.
   - **Picture previews:** thumbnails made in the background with the `image` crate and cached in `~/.cache/rustle/thumbs`, keyed by path + size + modified time. Only images under 50 MB (PNG, JPEG, GIF, WebP, BMP) get one.
 - The view is global, saved in Settings *(my call; per-folder views can come later)*.
 
+### 8. More ideas (added 2026-11-24)
+
+The user showed screenshots of another file manager **as inspiration only**. We take the general ideas, which are common to many file managers, and build them in Rustle's own look and wording. We do **not** copy that app's layout, artwork, text or icons.
+
+- **Layout (from the user's own sketch):** GNOME Files style. The sidebar runs full height; the header has back/forward, a clickable path bar (type mode on click or Ctrl+L) and settings. **The tab bar is always visible** at the top of the right side, browser-style, with **+** after the tabs. Tabs are at most 220 px wide.
+- **Start page:** shown in new tabs and on startup. It has cards for the user folders and one card per drive with a usage bar ("77.5 GB free of 177.3 GB") and a percentage. It's built from Task 7's `user_folders()` and `drives()`.
+- **Details panel** (right side, toggled by a button and F9) for the selected item, or the current folder when nothing is selected:
+  - name, kind, path, size (a "Calculate" button for folders, run in the background and cancellable), item count, modified/created/accessed dates, link target
+  - an image preview for pictures
+- **Clipboard bar:** after Cut or Copy, a bar above the status line says "N items ready to paste" (or "to move" for Cut), with Paste here / Show / Cancel buttons.
+- **Recent & Frequent page:** Favorites, recently opened, and most-visited folders and files. Rustle records them itself in `dirs::data_dir()/rustle/activity.json`, capped at 200 entries. A "Clear history" button erases them.
+- **Item count column** (Details layout) shows how many items are inside each folder. It's counted in the background for visible rows only, and shows "—" when the folder can't be read.
+- **Background picture:** a Settings option to pick an image shown behind the window, scaled to cover it. Panels sit on top, see-through according to the opacity setting.
+- **Tags:** color tags (red, orange, yellow, green, blue, purple, grey) with an optional name. They're shown as dots in the list, can be set from the right-click menu, and get a "Tagged" view on the Recent page. Stored by Rustle in `dirs::data_dir()/rustle/tags.json`, keyed by path. *Known limit:* a tag doesn't follow a file moved outside Rustle; moves and renames done *in* Rustle update the tag.
+
+### 9. Power features (added 2026-11-24)
+
+These are general ideas (also seen in Sigma File Manager's feature list). **Sigma is GPLv3 and Rustle is MIT, so we never read, copy or port its code.** We build each feature our own way.
+
+- **Search:** a search box (Ctrl+F) searches the current folder and everything below it by name while you type.
+  - Results stream in from a background walk and are cancelled when the query changes.
+  - Matching ignores case and tolerates small typos (edit distance ≤ 1 for words of 4+ letters).
+  - Results show the containing folder; Enter opens one.
+- **Quick view:** Space on the selected file opens an overlay preview: image, text (first 64 KB), PDF first page if feasible, or audio/video basic info. ←/→ move to the next file; Space or Escape closes it.
+- **Split view:** a tab can split into two side-by-side panes (F3), each with its own folder and history. "Copy/Move to other pane" in the right-click menu. Ctrl+Tab still switches tabs; Tab switches panes.
+- **Filter:** a filter box (Ctrl+Shift+F or `/`) hides items that don't match. Plain text = contains; `*`/`?` = glob.
+- **Zip:** "Compress to .zip" and "Extract here" in the right-click menu, run in the background with the `zip` crate. Name clashes use `unique_name`.
+
 ## Build order
 
 Each step is usable on its own and gets merged before the next:
@@ -239,8 +267,12 @@ Each step is usable on its own and gets merged before the next:
 1. Theme + layout shell + settings file/page (incl. opacity, blur).
 2. Tabs (moves current per-window state into `Tab`).
 3. Sidebar tree (places, drives, lazy expansion, follow current folder).
-4. Selection + right-click menu + file ops (re-adds `trash`).
+4. Selection + right-click menu + file ops (re-adds `trash`) + clipboard bar + details panel.
 5. Cloud via rclone.
+6. Start page, Recent & Frequent, tags, background picture (§8).
+7. Filter, quick view, search, split view, zip (§9).
+
+(2b, between tabs and sidebar: icons + View menu + previews, §7.)
 
 ## Left to the builder
 
