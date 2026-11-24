@@ -1,7 +1,7 @@
 //! The View menu: a small popover under the View button with layout,
 //! icon size and sort order.
 
-use iced::widget::{column, container, radio, row, text};
+use iced::widget::{column, container, radio, row, text, toggler};
 use iced::{Element, Theme};
 use rustle_core::{IconSize, Layout, SortKey, ViewSettings};
 
@@ -44,11 +44,19 @@ pub fn view<'a>(v: ViewSettings, c: Colors) -> Element<'a, Message> {
     ]
     .spacing(6);
 
+    let previews = column![
+        title("PICTURES"),
+        toggler(v.previews)
+            .label("Show previews (Icons layout)")
+            .on_toggle(Message::SetPreviews),
+    ]
+    .spacing(6);
+
     let hint = text("Ctrl+1/2/3 layout · Ctrl+wheel or Ctrl+= / Ctrl+- size")
         .size(11)
         .color(c.muted);
 
-    container(column![layout, size, sort, hint].spacing(16))
+    container(column![layout, size, sort, previews, hint].spacing(16))
         .padding(14)
         .width(WIDTH)
         .style(move |_theme: &Theme| container::Style {

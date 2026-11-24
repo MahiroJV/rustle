@@ -26,6 +26,19 @@ pub fn view<'a>(tab: &'a Tab, home: &Path, editing: bool, c: Colors) -> Element<
             .into();
     }
 
+    // The Home page isn't a folder: show its name instead of path pieces.
+    if tab.home_page {
+        return row![
+            row![icons::ui(Ui::Home, c.text, 16.0), text("Home page")]
+                .spacing(6)
+                .align_y(iced::Center)
+                .padding([4, 8]),
+            mouse_area(space().width(Fill).height(30)).on_press(Message::StartEditLocation),
+        ]
+        .align_y(iced::Center)
+        .into();
+    }
+
     let pieces = crumbs(&tab.cwd, home);
     let last = pieces.len().saturating_sub(1);
     let buttons = pieces

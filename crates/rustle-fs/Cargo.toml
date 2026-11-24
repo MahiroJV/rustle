@@ -9,6 +9,8 @@ rustle-core.workspace = true
 open = "5"
 dirs = "6"
 toml.workspace = true
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp"] }
+sysinfo = { version = "0.40.4", default-features = false, features = ["disk"] }
 
 [dev-dependencies]
 tempfile = "3"

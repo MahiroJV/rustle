@@ -55,6 +55,7 @@ mod tests {
                 icon_size: IconSize::Large,
                 sort: SortKey::Modified,
                 descending: true,
+                previews: true,
             },
         };
         save_settings(&p, &s).unwrap();

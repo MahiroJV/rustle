@@ -6,7 +6,9 @@ use std::path::{Path, PathBuf};
 
 use rustle_core::{Entry, FileSystem, FsError};
 
+pub mod places;
 mod settings_store;
+pub mod thumbs;
 pub use settings_store::{load_settings, save_settings, settings_path};
 
 #[derive(Debug, Default, Clone, Copy)]

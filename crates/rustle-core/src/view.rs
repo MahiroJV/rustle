@@ -55,6 +55,9 @@ pub struct ViewSettings {
     pub icon_size: IconSize,
     pub sort: SortKey,
     pub descending: bool,
+    /// Show picture thumbnails instead of icons (Icons layout). Off by
+    /// default: making thumbnails reads every picture once.
+    pub previews: bool,
 }
 
 impl ViewSettings {

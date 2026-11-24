@@ -135,6 +135,45 @@ pub fn crumb_button(c: Colors, current: bool) -> impl Fn(&Theme, button::Status)
     }
 }
 
+/// A clickable card (Home page): filled, with a faint border; lighter on hover.
+pub fn card_button(c: Colors) -> impl Fn(&Theme, button::Status) -> button::Style {
+    move |_theme, status| {
+        let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);
+        button::Style {
+            background: Some(Background::Color(if hovered { c.raised } else { c.surface })),
+            text_color: c.text,
+            border: Border {
+                radius: RADIUS.into(),
+                width: 1.0,
+                color: c.muted.scale_alpha(if hovered { 0.35 } else { 0.15 }),
+            },
+            ..button::Style::default()
+        }
+    }
+}
+
+/// A navigation row (sidebar). The row for "where you are" (`selected`) is
+/// tinted with the accent color; the others look like `row_button`.
+///
+/// One function with a `bool` instead of two functions: two different
+/// functions return two different closure types, which can't be picked
+/// with `if`/`else`.
+pub fn nav_row(c: Colors, selected: bool) -> impl Fn(&Theme, button::Status) -> button::Style {
+    let plain = row_button(c);
+    move |theme, status| {
+        if !selected {
+            return plain(theme, status);
+        }
+        let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);
+        button::Style {
+            background: Some(Background::Color(c.accent.scale_alpha(if hovered { 0.3 } else { 0.2 }))),
+            text_color: c.text,
+            border: Border::default().rounded(RADIUS),
+            ..button::Style::default()
+        }
+    }
+}
+
 /// A rounded box filled with `color` (sidebar, toolbar, settings card…).
 pub fn panel(color: Color) -> impl Fn(&Theme) -> container::Style {
     move |_theme| container::Style {

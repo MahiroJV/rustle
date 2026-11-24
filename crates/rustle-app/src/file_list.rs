@@ -4,8 +4,8 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use iced::widget::{Column, button, column, container, grid, row, scrollable, svg, text};
-use iced::{Element, Fill, Length};
+use iced::widget::{Column, button, column, container, grid, image, row, scrollable, svg, text};
+use iced::{ContentFit, Element, Fill, Length};
 use rustle_core::{Entry, FileKind, IconSize, Layout, SortKey, ViewSettings, extension, file_kind, format_size};
 
 use crate::dates::format_modified;
@@ -13,6 +13,7 @@ use crate::icons;
 use crate::message::Message;
 use crate::tab::shorten;
 use crate::theme::{Colors, ROW_HEIGHT, row_button};
+use crate::thumbs::Thumbs;
 
 // Column widths in the Details layout (Name takes the rest).
 const ITEMS_W: f32 = 90.0;
@@ -45,13 +46,17 @@ pub fn view<'a>(
     show_hidden: bool,
     view: ViewSettings,
     counts: &'a HashMap<PathBuf, Option<u64>>,
+    thumbs: &'a Thumbs,
     c: Colors,
 ) -> Element<'a, Message> {
     let visible = entries.iter().filter(move |e| show_hidden || !e.hidden);
     match view.layout {
         Layout::Details => details(visible, view, counts, c),
         Layout::List => list(visible, view.icon_size, c),
-        Layout::Icons => icons_grid(visible, view.icon_size, c),
+        Layout::Icons => {
+            let thumbs = view.previews.then_some(thumbs);
+            icons_grid(visible, view.icon_size, thumbs, c)
+        }
     }
 }
 
@@ -165,15 +170,27 @@ fn row_button_for<'a>(
         .into()
 }
 
+/// `thumbs` is `Some` when picture previews are on.
 fn icons_grid<'a>(
     entries: impl Iterator<Item = &'a Entry>,
     size: IconSize,
+    thumbs: Option<&'a Thumbs>,
     c: Colors,
 ) -> Element<'a, Message> {
     let px = grid_icon_px(size);
     let cells = entries.map(|e| {
+        // The thumbnail if previews are on and it's ready; otherwise the icon
+        // (also while the thumbnail is still being made).
+        let picture: Element<'a, Message> = match thumbs.and_then(|t| t.get(&e.path)) {
+            Some(handle) => image(handle.clone())
+                .width(px)
+                .height(px)
+                .content_fit(ContentFit::Contain)
+                .into(),
+            None => icon(e, px).into(),
+        };
         let cell = column![
-            icon(e, px),
+            picture,
             // Long names are shortened so one cell can't grow huge.
             text(shorten(&e.name, 40)).size(12).center().width(Fill),
         ]

@@ -4,6 +4,9 @@ use std::path::PathBuf;
 
 use iced::keyboard::Modifiers;
 use rustle_core::{Entry, IconSize, Layout, SortKey, ThemeChoice};
+use rustle_fs::places::{Drive, Place};
+
+use crate::sidebar::Section;
 
 /// Why a folder is being loaded. It decides what happens to the history
 /// once the load succeeds (a failed load never touches the history).
@@ -59,6 +62,29 @@ pub enum Message {
         tab_id: u64,
         request: u64,
         counts: Vec<(PathBuf, Option<u64>)>,
+    },
+
+    // Home page & sidebar
+    ShowHomePage,
+    /// User folders and drives, read in the background.
+    PlacesLoaded {
+        places: Vec<Place>,
+        drives: Vec<Drive>,
+    },
+    /// ▸/▾ next to a sidebar folder.
+    SidebarToggle(Section, PathBuf),
+    /// Sub-folders of a sidebar folder, read in the background.
+    SidebarChildren {
+        section: Section,
+        path: PathBuf,
+        result: Result<Vec<Entry>, String>,
+    },
+
+    SetPreviews(bool),
+    /// A background thumbnail job ended (`None` = couldn't make one).
+    ThumbLoaded {
+        path: PathBuf,
+        handle: Option<iced::widget::image::Handle>,
     },
 
     // Raw input the app needs to remember

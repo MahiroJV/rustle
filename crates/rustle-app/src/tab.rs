@@ -21,6 +21,14 @@ pub struct Tab {
     /// How many items each sub-folder holds (the "Items" column).
     /// Missing = still counting; `None` = couldn't be read.
     pub item_counts: HashMap<PathBuf, Option<u64>>,
+    /// Showing the Home page instead of `cwd`'s files.
+    pub home_page: bool,
+}
+
+/// How the Home page is written in a tab's history: an empty path, which is
+/// never a real folder. Back/Forward check for it.
+pub fn home_page_marker() -> PathBuf {
+    PathBuf::new()
 }
 
 impl Tab {
@@ -34,11 +42,26 @@ impl Tab {
             request: 0,
             history: History::default(),
             item_counts: HashMap::new(),
+            home_page: false,
         }
+    }
+
+    /// A new tab that opens on the Home page (its `cwd` is the home folder,
+    /// loaded in the background, so the path bar works right away).
+    pub fn on_home_page(id: u64, home: PathBuf) -> Self {
+        Self { home_page: true, ..Self::new(id, home) }
+    }
+
+    /// Where this tab "is", as stored in the history.
+    pub fn location(&self) -> PathBuf {
+        if self.home_page { home_page_marker() } else { self.cwd.clone() }
     }
 
     /// Folder name, or the whole path for a root like `/` or `C:\`.
     pub fn title(&self) -> String {
+        if self.home_page {
+            return "Home page".into();
+        }
         title_of(&self.cwd)
     }
 }

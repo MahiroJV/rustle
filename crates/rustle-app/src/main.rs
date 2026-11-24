@@ -3,13 +3,16 @@
 mod app;
 mod dates;
 mod file_list;
+mod home_page;
 mod icons;
 mod keybinds;
 mod message;
 mod pathbar;
 mod settings_page;
+mod sidebar;
 mod tab;
 mod theme;
+mod thumbs;
 mod view_menu;
 
 use app::App;

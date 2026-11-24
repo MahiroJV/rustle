@@ -48,6 +48,21 @@ pub fn file_icon(name: &str, is_dir: bool) -> svg::Handle {
     HANDLES[icon_name(name, is_dir)].clone()
 }
 
+/// A Material icon by its exact name, e.g. "folder-home". Falls back to the
+/// plain folder icon if the name isn't bundled.
+pub fn named(name: &str) -> svg::Handle {
+    HANDLES.get(name).unwrap_or(&HANDLES["folder"]).clone()
+}
+
+/// The icon for one of the standard user folders, by its label
+/// ("Home", "Downloads"…, as `rustle_fs::places::user_folders` names them).
+pub fn place_icon(label: &str) -> svg::Handle {
+    match label {
+        "Home" => named("folder-home"),
+        other => file_icon(other, true),
+    }
+}
+
 /// Which Material icon to use. Checks, in order: special folder names,
 /// special file names, then the extension; falls back to plain folder/file.
 pub fn icon_name(name: &str, is_dir: bool) -> &'static str {
@@ -156,11 +171,15 @@ pub enum Ui {
     Plus,
     Home,
     View,
+    Drive,
+    ChevronRight,
+    ChevronDown,
 }
 
 /// Same order as the `Ui` enum: `Ui::Back as usize` is index 0, and so on.
 static LUCIDE: &[(&str, &[u8])] = bundle!("lucide":
-    "arrow-left", "arrow-right", "settings", "x", "plus", "house", "layout-grid");
+    "arrow-left", "arrow-right", "settings", "x", "plus", "house", "layout-grid",
+    "hard-drive", "chevron-right", "chevron-down");
 
 static UI_ICONS: LazyLock<Vec<svg::Handle>> = LazyLock::new(|| {
     LUCIDE
@@ -240,7 +259,8 @@ mod tests {
 
     #[test]
     fn ui_enum_matches_lucide_list() {
-        assert_eq!(LUCIDE.len(), Ui::View as usize + 1);
+        assert_eq!(LUCIDE.len(), Ui::ChevronDown as usize + 1);
+        assert_eq!(LUCIDE[Ui::Drive as usize].0, "hard-drive");
         assert_eq!(LUCIDE[Ui::View as usize].0, "layout-grid");
         assert_eq!(LUCIDE[Ui::Home as usize].0, "house");
         assert_eq!(LUCIDE[Ui::Back as usize].0, "arrow-left");

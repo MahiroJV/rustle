@@ -4,18 +4,21 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use iced::keyboard::Modifiers;
-use iced::widget::{button, column, container, mouse_area, opaque, row, space, stack, text};
+use iced::widget::{button, column, container, image, mouse_area, opaque, row, space, stack, text};
 use iced::{Element, Fill, Subscription, Task, Theme};
-use rustle_core::{FileSystem, Settings, sort_entries_by};
+use rustle_core::{Entry, FileSystem, Layout, Settings, sort_entries, sort_entries_by};
 use rustle_fs::LocalFs;
+use rustle_fs::places::{self, Drive, Place};
 
 use crate::icons::{self, Ui};
 use crate::keybinds;
 use crate::message::{Message, Nav};
 use crate::pathbar::{self, LOCATION_ID};
-use crate::tab::{Tab, shorten};
+use crate::sidebar::{self, Node, NodeIcon, Section, Sidebar};
+use crate::tab::{Tab, home_page_marker, shorten};
 use crate::theme::{self, Colors, SIDEBAR_WIDTH, panel, row_button, tab_button};
-use crate::{file_list, settings_page, view_menu};
+use crate::thumbs::Thumbs;
+use crate::{file_list, home_page, settings_page, view_menu};
 
 const TAB_TITLE_MAX: usize = 24;
 const TAB_MAX_WIDTH: f32 = 220.0;
@@ -46,6 +49,12 @@ pub struct App {
     view_menu_open: bool,
     /// Which of Ctrl/Shift/Alt are held right now (for Ctrl + mouse wheel).
     modifiers: Modifiers,
+    /// Picture thumbnails in memory + the queue of ones still to make.
+    thumbs: Thumbs,
+    /// The user's standard folders and the drives (Home page + sidebar).
+    places: Vec<Place>,
+    drives: Vec<Drive>,
+    sidebar: Sidebar,
     error: Option<String>,
 }
 
@@ -58,16 +67,21 @@ impl App {
             settings,
             started_transparent,
             page: Page::Files,
-            tabs: vec![Tab::new(0, home.clone())],
+            // Rustle starts on the Home page.
+            tabs: vec![Tab::on_home_page(0, home.clone())],
             active: 0,
             next_tab_id: 1,
             home: home.clone(),
             editing_location: false,
             view_menu_open: false,
             modifiers: Modifiers::empty(),
+            thumbs: Thumbs::default(),
+            places: Vec::new(),
+            drives: Vec::new(),
+            sidebar: Sidebar::default(),
             error: None,
         };
-        let task = app.load(0, home, Nav::Reload);
+        let task = Task::batch([app.load(0, home, Nav::Reload), load_places()]);
         (app, task)
     }
 
@@ -176,6 +190,115 @@ impl App {
         )
     }
 
+    /// Ask for thumbnails of the pictures in the active tab, if previews are
+    /// on and the Icons layout is shown. Otherwise the waiting queue is
+    /// emptied, so no work is done for pictures nobody can see.
+    fn request_thumbs(&mut self) -> Task<Message> {
+        let v = self.settings.view;
+        if !(v.previews && v.layout == Layout::Icons) {
+            self.thumbs.want(Vec::new());
+            return Task::none();
+        }
+        let show_hidden = self.settings.show_hidden;
+        let wanted: Vec<PathBuf> = self
+            .tab()
+            .entries
+            .iter()
+            .filter(|e| !e.is_dir && (show_hidden || !e.hidden))
+            .filter(|e| rustle_fs::thumbs::is_previewable(&e.name, e.size))
+            .map(|e| e.path.clone())
+            .collect();
+        self.thumbs.want(wanted);
+        self.start_thumb_jobs()
+    }
+
+    /// Start background jobs for queued thumbnails, while slots are free.
+    fn start_thumb_jobs(&mut self) -> Task<Message> {
+        let jobs = self.thumbs.next_jobs().into_iter().map(|path| {
+            Task::perform(
+                async move {
+                    let p = path.clone();
+                    let handle = tokio::task::spawn_blocking(move || {
+                        rustle_fs::thumbs::thumbnail(&p)
+                            .ok()
+                            .map(|t| image::Handle::from_rgba(t.width, t.height, t.rgba))
+                    })
+                    .await
+                    .ok()
+                    .flatten();
+                    (path, handle)
+                },
+                |(path, handle)| Message::ThumbLoaded { path, handle },
+            )
+        });
+        Task::batch(jobs)
+    }
+
+    /// Read one sidebar folder's sub-folders in the background.
+    fn load_children(&self, section: Section, path: PathBuf) -> Task<Message> {
+        let fs = Arc::clone(&self.fs);
+        Task::perform(
+            async move {
+                let dir = path.clone();
+                let result = tokio::task::spawn_blocking(move || {
+                    let mut folders: Vec<Entry> = fs
+                        .list(&dir)
+                        .map_err(|e| e.to_string())?
+                        .into_iter()
+                        .filter(|e| e.is_dir)
+                        .collect();
+                    sort_entries(&mut folders);
+                    Ok(folders)
+                })
+                .await
+                .unwrap_or_else(|e| Err(e.to_string()));
+                (path, result)
+            },
+            move |(path, result)| Message::SidebarChildren {
+                section,
+                path,
+                result,
+            },
+        )
+    }
+
+    /// Open the sidebar tree down to the active tab's folder (not on the
+    /// Home page). Starts reading any folders it needs on the way.
+    fn reveal_current(&mut self) -> Task<Message> {
+        if self.tab().home_page {
+            return Task::none();
+        }
+        let cwd = self.tab().cwd.clone();
+        let loads = self.sidebar.reveal(&cwd);
+        Task::batch(loads.into_iter().map(|(section, path)| self.load_children(section, path)))
+    }
+
+    /// Put the current favorites, folders and drives into the sidebar.
+    fn refresh_sidebar_roots(&mut self) {
+        let favorites = self
+            .settings
+            .favorites
+            .iter()
+            .map(|p| {
+                let label = p.file_name().map_or_else(|| p.display().to_string(), |n| n.to_string_lossy().into_owned());
+                Node::new(p.clone(), label, NodeIcon::Folder)
+            })
+            .collect();
+        let places = self
+            .places
+            .iter()
+            .map(|p| Node::new(p.path.clone(), p.label.clone(), NodeIcon::Place))
+            .collect();
+        let drives = self
+            .drives
+            .iter()
+            .map(|d| Node::new(d.mount.clone(), d.label.clone(), NodeIcon::Drive))
+            .collect();
+        self.sidebar.set_roots(Section::Favorites, favorites);
+        self.sidebar.set_roots(Section::Places, places);
+        self.sidebar.set_roots(Section::Drives, drives);
+    }
+
     /// Re-sort every tab after the sort order changed (no disk access needed).
     fn resort(&mut self) {
         let v = self.settings.view;
@@ -222,23 +345,89 @@ impl App {
                 return self.go(path, Nav::Fresh);
             }
             Message::Up => {
+                // "Up" has no meaning on the Home page.
+                if self.tab().home_page {
+                    return Task::none();
+                }
                 if let Some(parent) = self.tab().cwd.parent().map(PathBuf::from) {
                     return self.go(parent, Nav::Fresh);
                 }
             }
             Message::Back => {
                 if let Some(target) = self.tab().history.peek_back().map(PathBuf::from) {
+                    if target == home_page_marker() {
+                        // Back to the Home page: nothing to load, switch now.
+                        let tab = &mut self.tabs[self.active];
+                        let here = tab.location();
+                        tab.history.back(here);
+                        tab.home_page = true;
+                        return Task::none();
+                    }
                     return self.go(target, Nav::Back);
                 }
             }
             Message::Forward => {
                 if let Some(target) = self.tab().history.peek_forward().map(PathBuf::from) {
+                    if target == home_page_marker() {
+                        let tab = &mut self.tabs[self.active];
+                        let here = tab.location();
+                        tab.history.forward(here);
+                        tab.home_page = true;
+                        return Task::none();
+                    }
                     return self.go(target, Nav::Forward);
                 }
             }
             Message::Refresh => {
+                // On the Home page, F5 re-reads folders and drives (free space).
+                if self.tab().home_page {
+                    return load_places();
+                }
                 let cwd = self.tab().cwd.clone();
                 return self.go(cwd, Nav::Reload);
+            }
+            Message::ShowHomePage => {
+                self.page = Page::Files;
+                self.editing_location = false;
+                let tab = &mut self.tabs[self.active];
+                if !tab.home_page {
+                    let here = tab.location();
+                    tab.history.visit(here);
+                    tab.home_page = true;
+                }
+                // Free space may have changed since last time.
+                return load_places();
+            }
+            Message::PlacesLoaded { places, drives } => {
+                self.places = places;
+                self.drives = drives;
+                self.refresh_sidebar_roots();
+                return self.reveal_current();
+            }
+            Message::SidebarToggle(section, path) => {
+                if let Some(load) = self.sidebar.toggle(section, &path) {
+                    return self.load_children(section, load);
+                }
+            }
+            Message::SidebarChildren {
+                section,
+                path,
+                result,
+            } => {
+                let children = match result {
+                    Ok(folders) => folders
+                        .into_iter()
+                        .map(|e| Node::new(e.path, e.name, NodeIcon::Folder))
+                        .collect(),
+                    Err(e) => {
+                        // e.g. no permission: the node just shows nothing inside.
+                        self.error = Some(e);
+                        Vec::new()
+                    }
+                };
+                self.sidebar.set_children(section, &path, children);
+                // If we were opening the tree towards the current folder, go on.
+                return self.reveal_current();
             }
             Message::OpenFile(path) => {
                 self.error = self.fs.open(&path).err().map(|e| e.to_string());
@@ -259,7 +448,9 @@ impl App {
                 tab.loading = false;
                 match result {
                     Ok(entries) => {
-                        let old = std::mem::replace(&mut tab.cwd, dir);
+                        // Where the tab was (a folder, or the Home page).
+                        let old = tab.location();
+                        tab.cwd = dir;
                         // History changes only now, after a successful load.
                         match nav {
                             Nav::Fresh if old != tab.cwd => tab.history.visit(old),
@@ -271,6 +462,11 @@ impl App {
                             }
                             Nav::Fresh | Nav::Reload => {}
                         }
+                        // Going anywhere leaves the Home page; a reload
+                        // (startup, F5) keeps it.
+                        if nav != Nav::Reload {
+                            tab.home_page = false;
+                        }
                         let folders: Vec<PathBuf> = entries
                             .iter()
                             .filter(|e| e.is_dir)
@@ -281,7 +477,12 @@ impl App {
                         tab.item_counts.clear();
                         tab.location_input = tab.cwd.display().to_string();
                         self.error = None;
-                        return self.count_items(tab_id, request, folders);
+                        let counting = self.count_items(tab_id, request, folders);
+                        return Task::batch([
+                            counting,
+                            self.request_thumbs(),
+                            self.reveal_current(),
+                        ]);
                     }
                     Err(e) => self.error = Some(e),
                 }
@@ -304,7 +505,16 @@ impl App {
             Message::SetLayout(layout) => {
                 self.settings.view.layout = layout;
                 self.page = Page::Files;
-                return self.save_settings();
+                return Task::batch([self.save_settings(), self.request_thumbs()]);
+            }
+            Message::SetPreviews(on) => {
+                self.settings.view.previews = on;
+                return Task::batch([self.save_settings(), self.request_thumbs()]);
+            }
+            Message::ThumbLoaded { path, handle } => {
+                self.thumbs.finished(path, handle);
+                // A job slot is free now: start the next waiting thumbnail.
+                return self.start_thumb_jobs();
             }
             Message::SetIconSize(size) => {
                 self.settings.view.icon_size = size;
@@ -372,10 +582,15 @@ impl App {
 
             // ---- tabs ----
             Message::NewTab(path) => {
-                let dir = path.unwrap_or_else(|| self.home.clone());
                 let id = self.next_tab_id;
                 self.next_tab_id += 1;
-                self.tabs.push(Tab::new(id, dir.clone()));
+                // A plain new tab (+, Ctrl+T) opens the Home page; a folder
+                // opened in a new tab (middle-click) opens that folder.
+                let (tab, dir) = match path {
+                    Some(dir) => (Tab::new(id, dir.clone()), dir),
+                    None => (Tab::on_home_page(id, self.home.clone()), self.home.clone()),
+                };
+                self.tabs.push(tab);
                 self.active = self.tabs.len() - 1;
                 self.page = Page::Files;
                 self.editing_location = false;
@@ -388,11 +603,16 @@ impl App {
                     self.active = index;
                     self.error = None;
                     self.editing_location = false;
+                    return Task::batch([self.request_thumbs(), self.reveal_current()]);
                 }
             }
-            Message::NextTab => self.active = (self.active + 1) % self.tabs.len(),
+            Message::NextTab => {
+                self.active = (self.active + 1) % self.tabs.len();
+                return self.reveal_current();
+            }
             Message::PrevTab => {
                 self.active = (self.active + self.tabs.len() - 1) % self.tabs.len();
+                return self.reveal_current();
             }
 
             // ---- settings ----
@@ -412,11 +632,11 @@ impl App {
             }
             Message::SetShowHidden(on) => {
                 self.settings.show_hidden = on;
-                return self.save_settings();
+                return Task::batch([self.save_settings(), self.request_thumbs()]);
             }
             Message::ToggleHidden => {
                 self.settings.show_hidden = !self.settings.show_hidden;
-                return self.save_settings();
+                return Task::batch([self.save_settings(), self.request_thumbs()]);
             }
             Message::SaveSettings => return self.save_settings(),
             Message::SettingsSaved(result) => {
@@ -433,11 +653,13 @@ impl App {
         let tab = self.tab();
 
         let main: Element<'_, Message> = match self.page {
+            Page::Files if tab.home_page => home_page::view(&self.places, &self.drives, c),
             Page::Files => file_list::view(
                 &tab.entries,
                 self.settings.show_hidden,
                 self.settings.view,
                 &tab.item_counts,
+                &self.thumbs,
                 c,
             ),
             Page::Settings => settings_page::view(&self.settings, self.started_transparent, c),
@@ -544,14 +766,17 @@ impl App {
         container(bar).padding(6).width(Fill).style(panel(c.surface)).into()
     }
 
-    /// Placeholder until the real sidebar tree (Task 8).
     fn sidebar(&self, c: Colors) -> Element<'_, Message> {
-        column![
-            text("Places").color(c.muted).size(13),
-            text("The folder tree comes here.").color(c.muted).size(13),
-        ]
-        .spacing(6)
-        .into()
+        let tab = self.tab();
+        sidebar::view(
+            &self.sidebar,
+            sidebar::ViewState {
+                cwd: Some(&tab.cwd),
+                on_home_page: tab.home_page,
+                show_hidden: self.settings.show_hidden,
+                c,
+            },
+        )
     }
 
     fn status_bar(&self, c: Colors) -> Element<'_, Message> {
@@ -559,6 +784,10 @@ impl App {
         let hidden = tab.entries.iter().filter(|e| e.hidden).count();
         let left = match &self.error {
             Some(e) => text(e.clone()).color(c.danger),
+            None if tab.home_page => {
+                text(format!("{} folders · {} drives", self.places.len(), self.drives.len()))
+                    .color(c.muted)
+            }
             None if tab.loading => text("Loading…").color(c.muted),
             None => text(format!("{} items · {hidden} hidden", tab.entries.len())).color(c.muted),
         };
@@ -575,6 +804,18 @@ fn expand_home(input: &str, home: &Path) -> PathBuf {
     }
 }
 
+/// Read the user's folders and the drive list in the background.
+fn load_places() -> Task<Message> {
+    Task::perform(
+        async {
+            tokio::task::spawn_blocking(|| (places::user_folders(), places::drives()))
+                .await
+                .unwrap_or_default()
+        },
+        |(places, drives)| Message::PlacesLoaded { places, drives },
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -589,3 +830,4 @@ mod tests {
         assert_eq!(expand_home("~bob", home), PathBuf::from("~bob"));
     }
 }
+
