@@ -1,0 +1,73 @@
+# Checks every push to master and every pull request.
+#
+# - Linux:           formatting, clippy (no warnings allowed), all tests
+# - Windows, macOS:  clippy, which compiles everything (tests included), so
+#                    platform-only code like `#[cfg(windows)]` is checked too.
+#                    Tests run on Linux only for now: some use Unix paths.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch: # a "Run workflow" button on GitHub, for manual runs
+
+# A newer push to the same branch cancels the older, still-running check.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # Treat compiler warnings as errors, like clippy's `-D warnings`.
+  RUSTFLAGS: -D warnings
+
+jobs:
+  fmt:
+    name: Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all --check
+
+  linux:
+    name: Linux (clippy + tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system libraries iced needs on Linux
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libxkbcommon-dev libwayland-dev libx11-dev
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      # Caches downloaded crates and build output between runs (much faster).
+      - uses: Swatinem/rust-cache@v2
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked
+      - name: Tests
+        run: cargo test --workspace --locked
+
+  other-os:
+    name: ${{ matrix.os }} (clippy)
+    strategy:
+      fail-fast: false # one OS failing shouldn't hide the other's result
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked
